@@ -116,6 +116,38 @@ export const TerminalSlate = ({ tabId }: { tabId: string }) => {
         console.warn("WebGL addon failed to load:", error);
       }
 
+      // Handle custom keyboard shortcuts
+      terminal.attachCustomKeyEventHandler((event) => {
+        // Cmd+Enter or Shift+Enter: Multi-line command continuation with backslash
+        if (event.key === 'Enter' && (event.metaKey || event.shiftKey) && !event.ctrlKey) {
+          event.preventDefault();
+          if (terminalId()) {
+            electrobun.rpc?.request.writeToTerminal({
+              terminalId: terminalId()!,
+              data: ' \\\n', // Backslash for line continuation, then newline
+            });
+          }
+          return false;
+        }
+
+        // Cmd+K: Clear terminal
+        if (event.key === 'k' && event.metaKey && !event.shiftKey && !event.ctrlKey) {
+          event.preventDefault();
+          terminal?.clear();
+          // Also send clear command to the shell
+          if (terminalId()) {
+            electrobun.rpc?.request.writeToTerminal({
+              terminalId: terminalId()!,
+              data: '\x0c', // Form feed character (clear screen)
+            });
+          }
+          return false;
+        }
+
+        // Return true to allow xterm to handle other keys normally
+        return true;
+      });
+
       // Handle user input
       terminal.onData((data) => {
         if (terminalId()) {
