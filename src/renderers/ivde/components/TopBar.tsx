@@ -11,6 +11,7 @@ import {
   focusTabWithId,
   openFileAt,
   updateSyncedState,
+  getCurrentTab,
 } from "../store";
 import { For, type JSX, Show, createEffect, createSignal, createMemo } from "solid-js";
 
@@ -311,6 +312,16 @@ const CommandPalette = ({ setOpen }: { setOpen: (value: boolean) => void }) => {
       { name: "Workspace Settings", description: "Configure workspace settings", action: workspaceSettingsClick },
       { name: "Colab Settings", description: "Configure global Colab settings", action: globalSettingsClick },
       { name: "New Workspace", description: "Create a new workspace", action: () => electrobun.rpc?.send.createWorkspace() },
+      {
+        name: "Format Document",
+        description: "Format the current code editor",
+        action: () => {
+          const activeTab = getCurrentTab();
+          if (!activeTab || activeTab.type !== 'file') return;
+
+          electrobun.rpc?.send("formatFile", { path: activeTab.path });
+        }
+      },
     ];
 
     // Define all colab menu commands

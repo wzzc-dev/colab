@@ -521,9 +521,10 @@ export const Editor = ({ currentTabId }: { currentTabId: string }) => {
           return;
         }
 
-        electrobun.rpc?.send("formatFile", {
-          path: model.uri.path,
-        });
+        // Auto-format on save disabled - use command palette to format manually
+        // electrobun.rpc?.send("formatFile", {
+        //   path: model.uri.path,
+        // });
 
         setState(
           produce((_state: AppState) => {
