@@ -108,6 +108,9 @@ export const GitHubRepoSelector = (props: GitHubRepoSelectorProps): JSXElement =
     try {
       const repoBranches = await githubService.fetchRepositoryBranches(repo.owner.login, repo.name);
 
+      let defaultBranch: string;
+      let isEmptyRepo = false;
+
       // If the repo has no branches (empty repo), add a synthetic "main (create)" branch
       if (repoBranches.length === 0) {
         setBranches([{
@@ -115,11 +118,18 @@ export const GitHubRepoSelector = (props: GitHubRepoSelectorProps): JSXElement =
           commit: { sha: '' },
           protected: false
         }]);
+        defaultBranch = 'main';
+        isEmptyRepo = true;
       } else {
         setBranches(repoBranches);
+        // Use the repo's default branch, or the first branch if no default is set
+        defaultBranch = repo.default_branch || repoBranches[0].name;
       }
 
       setShowBranches(repo);
+
+      // Auto-select the default branch
+      props.onSelectRepository(repo, defaultBranch, isEmptyRepo);
     } catch (err) {
       console.error("Error loading branches:", err);
       setError("Failed to load branches");
