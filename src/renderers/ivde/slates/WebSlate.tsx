@@ -76,10 +76,10 @@ export const WebSlate = ({
   const renderer = () => {
     const slate = getSlateForNode(node);
     if (slate?.type === "web" && slate.config && "renderer" in slate.config) {
-      return slate.config.renderer || "cef";
+      return slate.config.renderer || "system";
     }
-    // Default to CEF for better compatibility
-    return "cef";
+    // Default to WebKit (system) for new browser profiles
+    return "system";
   };
 
   // just get this once, so we have unidirectinoal flow on navigate -> update store
@@ -377,7 +377,7 @@ console.log('Preload script loaded for:', window.location.href);
         type: "web",
         url: currentUrl,
         config: {
-          renderer: "cef" as const, // Default to CEF for new browser profiles
+          renderer: "system" as const, // Default to WebKit for new browser profiles
         },
       };
       

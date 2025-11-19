@@ -317,7 +317,9 @@ const TemplateNodeItem = ({ template }: { template: typeof TEMPLATE_NODES[number
           type: "web",
           url: "https://blackboard.sh",
           icon: "views://assets/file-icons/bookmark.svg",
-          config: {},
+          config: {
+            renderer: "system" as const,
+          },
         };
 
         const slateConfigPath = join(browserProfilePath, ".colab.json");

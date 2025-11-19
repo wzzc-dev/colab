@@ -3566,9 +3566,9 @@ const NodeSettings = () => {
 															slate.config &&
 															"renderer" in slate.config
 														) {
-															return slate.config.renderer || "cef";
+															return slate.config.renderer || "system";
 														}
-														return "cef";
+														return "system";
 													})()}
 													onInput={(e: any) => {
 														const renderer = e.currentTarget.value as
