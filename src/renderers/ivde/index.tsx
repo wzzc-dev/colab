@@ -2183,6 +2183,7 @@ const NodeSettings = () => {
   const [useGitHubSelector, setUseGitHubSelector] = createSignal(true); // Default to GitHub
   const [selectedGitHubRepo, setSelectedGitHubRepo] = createSignal<GitHubRepository | null>(null);
   const [selectedGitHubBranch, setSelectedGitHubBranch] = createSignal<string | null>(null);
+  const [shouldCreateMainBranch, setShouldCreateMainBranch] = createSignal(false);
   
   // TODO: you can use electron.showOpenDialog to customize the file chooser rather than have an html file input
   
@@ -2598,6 +2599,7 @@ const NodeSettings = () => {
         electrobun.rpc?.request.gitClone({
           repoPath: _previewNode.path,
           gitUrl,
+          createMainBranch: shouldCreateMainBranch(),
         }).then(() => {
           console.log("Repository cloned successfully");
         }).catch((error) => {
@@ -2733,23 +2735,24 @@ const NodeSettings = () => {
   };
 
   // Handler for GitHub repository selection
-  const onGitHubRepoSelect = (repo: GitHubRepository, branch?: string) => {
+  const onGitHubRepoSelect = (repo: GitHubRepository, branch?: string, isEmptyRepo?: boolean) => {
     setSelectedGitHubRepo(repo);
     setSelectedGitHubBranch(branch || null); // Don't auto-set branch, let user click
-    
+    setShouldCreateMainBranch(isEmptyRepo || false);
+
     // Update the git URL in the preview node config only when branch is explicitly selected
     if (branch) {
       const gitUrl = repo.clone_url;
-      setPreviewNodeSlateConfig({ 
+      setPreviewNodeSlateConfig({
         gitUrl,
-        branch: branch 
+        branch: branch
       });
-      
+
       // Update the text input to show the selected URL
       if (gitUrlRef) {
         gitUrlRef.value = gitUrl;
       }
-      
+
       // Validate the URL immediately since we know it's valid
       setGitUrlValidation({ status: 'valid' });
     }

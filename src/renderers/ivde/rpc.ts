@@ -372,6 +372,7 @@ export type WorkspaceRPC = {
         params: {
           repoPath: string;
           gitUrl: string;
+          createMainBranch?: boolean;
         };
         response: string;
       };

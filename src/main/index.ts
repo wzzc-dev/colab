@@ -1012,8 +1012,8 @@ const createWindow = (workspaceId: string, window?: WindowConfigType) => {
         gitLogRemoteOnly: ({ repoRoot, localBranch, remoteBranch }) => {
           return gitLogRemoteOnly(repoRoot, localBranch, remoteBranch);
         },
-        gitClone: ({ repoPath, gitUrl }) => {
-          return gitClone(repoPath, gitUrl);
+        gitClone: ({ repoPath, gitUrl, createMainBranch }) => {
+          return gitClone(repoPath, gitUrl, createMainBranch);
         },
         gitValidateUrl: ({ gitUrl }) => {
           return gitValidateUrl(gitUrl);

@@ -9,7 +9,7 @@ import {
 import { githubService, type GitHubRepository, type GitHubOrganization } from "../services/githubService";
 
 interface GitHubRepoSelectorProps {
-  onSelectRepository: (repo: GitHubRepository, branch?: string) => void;
+  onSelectRepository: (repo: GitHubRepository, branch?: string, isEmptyRepo?: boolean) => void;
   selectedRepo?: GitHubRepository | null;
   selectedBranch?: string | null;
 }
@@ -107,7 +107,18 @@ export const GitHubRepoSelector = (props: GitHubRepoSelectorProps): JSXElement =
   const loadBranches = async (repo: GitHubRepository) => {
     try {
       const repoBranches = await githubService.fetchRepositoryBranches(repo.owner.login, repo.name);
-      setBranches(repoBranches);
+
+      // If the repo has no branches (empty repo), add a synthetic "main (create)" branch
+      if (repoBranches.length === 0) {
+        setBranches([{
+          name: 'main',
+          commit: { sha: '' },
+          protected: false
+        }]);
+      } else {
+        setBranches(repoBranches);
+      }
+
       setShowBranches(repo);
     } catch (err) {
       console.error("Error loading branches:", err);
@@ -156,7 +167,11 @@ export const GitHubRepoSelector = (props: GitHubRepoSelectorProps): JSXElement =
   };
 
   const handleBranchSelect = (repo: GitHubRepository, branch: string) => {
-    props.onSelectRepository(repo, branch);
+    // Check if this is an empty repo (branch has no commit SHA)
+    const selectedBranch = branches().find(b => b.name === branch);
+    const isEmptyRepo = selectedBranch?.commit.sha === '';
+
+    props.onSelectRepository(repo, branch, isEmptyRepo);
     setShowBranches(null);
   };
 
@@ -295,10 +310,11 @@ export const GitHubRepoSelector = (props: GitHubRepoSelectorProps): JSXElement =
                       {(branch) => {
                         const isSelected = props.selectedRepo?.id === repo.id && props.selectedBranch === branch.name;
                         const isDefault = branch.name === repo.default_branch;
+                        const isEmpty = branch.commit.sha === ''; // Empty repo indicator
                         // Show default branch as pre-selected if no branch is currently selected for this repo
-                        const isPreSelected = showBranches()?.id === repo.id && !props.selectedBranch && isDefault;
+                        const isPreSelected = showBranches()?.id === repo.id && !props.selectedBranch && (isDefault || isEmpty);
                         const showAsSelected = isSelected || isPreSelected;
-                        
+
                         return (
                           <div
                             onClick={() => handleBranchSelect(repo, branch.name)}
@@ -329,7 +345,18 @@ export const GitHubRepoSelector = (props: GitHubRepoSelectorProps): JSXElement =
                                 </span>
                               </Show>
                               <span>{branch.name}</span>
-                              <Show when={isDefault}>
+                              <Show when={isEmpty}>
+                                <span style={{
+                                  background: showAsSelected ? "rgba(255,255,255,0.2)" : "#4a4a6b",
+                                  color: showAsSelected ? "#ffffff" : "#6b9cff",
+                                  padding: "1px 4px",
+                                  "border-radius": "2px",
+                                  "font-size": "9px"
+                                }}>
+                                  CREATE
+                                </span>
+                              </Show>
+                              <Show when={isDefault && !isEmpty}>
                                 <span style={{
                                   background: showAsSelected ? "rgba(255,255,255,0.2)" : "#4a6741",
                                   color: showAsSelected ? "#ffffff" : "#8bc34a",
