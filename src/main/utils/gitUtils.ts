@@ -117,66 +117,44 @@ export const gitClone = async (repoPath: string, gitUrl: string, createMainBranc
     const parentDir = path.dirname(repoPath);
     const folderName = path.basename(repoPath);
 
-    const systemGit = simpleGit({
-      baseDir: parentDir,
-      binary: 'git', // Use system git instead of bundled git
-      maxConcurrentProcesses: 2,
-      trimmed: false,
-    });
-
     if (createMainBranch) {
-      // For empty repositories, we need to clone bare and create the main branch
-      try {
-        // Clone the empty repository (this will work even with no branches)
-        await systemGit.clone(gitUrl, folderName);
-      } catch (cloneError: any) {
-        // If clone fails due to empty repo, we need a different approach
-        if (cloneError.message?.includes('does not have any commits yet') ||
-            cloneError.message?.includes('remote HEAD refers to nonexistent')) {
-          console.log('Empty repository detected, initializing with main branch...');
+      // For empty repositories, initialize manually to avoid detached HEAD
+      console.log('Creating empty repository with main branch...');
 
-          // Create the directory manually
-          const targetPath = path.join(parentDir, folderName);
-          if (!fs.existsSync(targetPath)) {
-            fs.mkdirSync(targetPath, { recursive: true });
-          }
-
-          // Initialize git with main branch and set up remote
-          const repoGit = simpleGit({
-            baseDir: targetPath,
-            binary: 'git',
-            maxConcurrentProcesses: 2,
-            trimmed: false,
-          });
-
-          await repoGit.init(['--initial-branch', 'main']);
-          await repoGit.addRemote('origin', gitUrl);
-
-          return `Successfully cloned empty repository and initialized main branch at ${repoPath}`;
-        }
-        throw cloneError;
+      // Create the directory
+      const targetPath = path.join(parentDir, folderName);
+      if (!fs.existsSync(targetPath)) {
+        fs.mkdirSync(targetPath, { recursive: true });
       }
 
-      // Check if we successfully cloned but still need to create main branch
+      // Initialize git with main branch using system git
       const repoGit = simpleGit({
-        baseDir: repoPath,
+        baseDir: targetPath,
         binary: 'git',
         maxConcurrentProcesses: 2,
         trimmed: false,
       });
 
-      try {
-        // Try to get current branch - this will fail if no commits exist
-        await repoGit.revparse(['--abbrev-ref', 'HEAD']);
-      } catch (error) {
-        // No commits yet, create main branch
-        console.log('Repository has no commits, creating main branch...');
-        // The init above would have already set up main as the initial branch
-      }
+      await repoGit.init(['--initial-branch=main']);
+      await repoGit.addRemote('origin', gitUrl);
 
-      return `Successfully cloned repository and set up main branch at ${repoPath}`;
+      // Create an initial .gitignore and commit to establish the main branch
+      // This prevents detached HEAD state and creates a proper branch
+      const gitignorePath = path.join(targetPath, '.gitignore');
+      fs.writeFileSync(gitignorePath, '# Add files to ignore here\n');
+      await repoGit.add('.gitignore');
+      await repoGit.commit('Initial commit');
+
+      return `Successfully cloned empty repository and initialized main branch at ${repoPath}`;
     } else {
       // Normal clone for repositories with existing branches
+      const systemGit = simpleGit({
+        baseDir: parentDir,
+        binary: 'git', // Use system git instead of bundled git
+        maxConcurrentProcesses: 2,
+        trimmed: false,
+      });
+
       await systemGit.clone(gitUrl, folderName);
       return `Successfully cloned repository to ${repoPath}`;
     }
