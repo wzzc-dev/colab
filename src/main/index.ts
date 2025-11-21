@@ -401,10 +401,10 @@ ApplicationMenu.on("application-menu-clicked", (e) => {
 
 const tray = new Tray({
   title: `co(lab)${channel !== "stable" ? `-${channel}` : ""}`,
-  image: "views://assets/colab-tray-32.png",
+  image: "views://assets/icon_32x32@2x.png",
   template: false,
-  width: 32,
-  height: 32,
+  width: 18,
+  height: 18,
 });
 
 tray.on("tray-clicked", (e) => {
