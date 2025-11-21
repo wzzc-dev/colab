@@ -115,7 +115,7 @@ export const TopBar = () => {
         />
         <span style="color: #fff; font-weight: bold;">co(lab){state.buildVars.channel === "dev" ? " - dev" :
           state.buildVars.channel === "canary" ? " - canary" :
-          "#184d8b"}</span>
+          ""}</span>
       </div>
 
       <CommandPalette setOpen={setCommandPaletteOpen} />
