@@ -222,7 +222,7 @@ export const gitStashPop = async (repoRoot: string, stashName: string) => {
 
 export const gitStashShow = async (repoRoot: string, stashName: string) => {
   try {
-    const stashContent = await git(repoRoot).stash(['show', '--name-status', stashName]);
+    const stashContent = await git(repoRoot).stash(['show', '--name-status', '--include-untracked', stashName]);
     return stashContent;
   } catch (error) {
     console.error('Git stash show error:', error);
