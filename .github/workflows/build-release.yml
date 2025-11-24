@@ -33,15 +33,17 @@ jobs:
         with:
           path: |
             llama-cli/deps/llama.cpp
-          key: llama-cpp-${{ runner.os }}-${{ hashFiles('.github/workflows/versions.env') }}
+          key: llama-cpp-${{ runner.os }}-${{ hashFiles('**/versions.env') }}
           restore-keys: |
             llama-cpp-${{ runner.os }}-
 
-      - name: Cache Zig compiler  
+      - name: Cache Zig compiler
         uses: actions/cache@v4
         with:
           path: vendors/zig
-          key: zig-${{ runner.os }}-${{ hashFiles('.github/workflows/versions.env') }}
+          key: zig-${{ runner.os }}-${{ hashFiles('**/versions.env') }}
+          restore-keys: |
+            zig-${{ runner.os }}-
           # Version controlled by .github/workflows/versions.env
 
       - name: Build dependencies if needed
@@ -74,14 +76,14 @@ jobs:
         with:
           path: |
             llama-cli/deps/llama.cpp
-          key: llama-cpp-${{ runner.os }}-${{ hashFiles('.github/workflows/versions.env') }}
+          key: llama-cpp-${{ runner.os }}-${{ hashFiles('**/versions.env') }}
           restore-keys: |
             llama-cpp-${{ runner.os }}-
 
       - name: Debug cache status
         run: |
           echo "Cache hit: ${{ steps.llama-cache-restore.outputs.cache-hit }}"
-          echo "Cache key: llama-cpp-${{ runner.os }}-${{ hashFiles('.github/workflows/versions.env') }}"
+          echo "Cache key: llama-cpp-${{ runner.os }}-${{ hashFiles('**/versions.env') }}"
           echo "Current directory: $(pwd)"
           echo "llama.cpp exists: $(test -d llama-cli/deps/llama.cpp && echo 'yes' || echo 'no')"
 
@@ -89,7 +91,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: vendors/zig
-          key: zig-${{ runner.os }}-${{ hashFiles('.github/workflows/versions.env') }}
+          key: zig-${{ runner.os }}-${{ hashFiles('**/versions.env') }}
+          restore-keys: |
+            zig-${{ runner.os }}-
 
       - name: Verify dependencies are available
         run: |
