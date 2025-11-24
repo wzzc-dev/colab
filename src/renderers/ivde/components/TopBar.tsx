@@ -593,24 +593,24 @@ const CommandPaletteItem = ({ icon, name, description, onSelect, isSelected }: {
       ref={(el) => (itemRef = el)}
       style={`
     display: flex;
-    color: #666;
-    padding: 0 5px;
-    background: ${isSelected?.() ? "#4a6fa5" : hover() ? "#3f5b7c" : "#222"};
-    color: ${hover() || isSelected?.() ? "#ddd" : "#fff"};
-    padding: 5px;
-    border-radius: 5px;
+    background: ${isSelected?.() ? "#094771" : hover() ? "#2a2d2e" : "transparent"};
+    color: ${hover() || isSelected?.() ? "#cccccc" : "#cccccc"};
+    padding: 3px 6px;
+    border-radius: 3px;
     align-items: center;
     cursor: pointer;
     text-wrap-mode: nowrap;
-    border: ${isSelected?.() ? "2px solid #6a9fd8" : "2px solid transparent"};
+    border: 1px solid transparent;
+    font-size: 13px;
+    gap: 8px;
     `}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onMouseDown={onSelect}
     >
-      <div>{icon}</div>
-      <div>{name}</div>
-      <div style={`font-size: 12px; opacity: .6; margin-left:8px;`}>
+      <div style="display: flex; align-items: center; flex-shrink: 0; width: 16px; justify-content: center;">{icon}</div>
+      <div style="flex: 1; min-width: 0;">{name}</div>
+      <div style={`font-size: 11px; opacity: .5; flex-shrink: 0;`}>
         {description}
       </div>
     </div>
