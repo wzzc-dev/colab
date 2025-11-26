@@ -93,6 +93,7 @@ import { GitHubRepoSelector } from "./components/GitHubRepoSelector";
 import { StatusBar } from "./components/StatusBar";
 import { TopBar } from "./components/TopBar";
 import { type GitHubRepository, githubService } from "./services/githubService";
+import { ColabCloudSettings } from "./settings/ColabCloudSettings";
 import { GitHubSettings } from "./settings/GitHubSettings";
 import { LlamaSettings } from "./settings/LlamaSettings";
 import { PluginMarketplace } from "./settings/PluginMarketplace";
@@ -701,6 +702,9 @@ const App = () => {
 									</Match>
 									<Match when={state.settingsPane.type === "github-settings"}>
 										<GitHubSettings />
+									</Match>
+									<Match when={state.settingsPane.type === "colab-cloud-settings"}>
+										<ColabCloudSettings />
 									</Match>
 									<Match when={state.settingsPane.type === "plugin-marketplace"}>
 										<PluginMarketplace />

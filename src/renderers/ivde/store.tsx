@@ -214,7 +214,7 @@ export interface AppState {
       }
     | {
         // todo (yoav): may separate these out if they need to store metadata later
-        type: "global-settings" | "workspace-settings" | "llama-settings" | "github-settings" | "plugin-marketplace";
+        type: "global-settings" | "workspace-settings" | "llama-settings" | "github-settings" | "colab-cloud-settings" | "plugin-marketplace";
         data: {};
       };
 
@@ -306,6 +306,15 @@ export interface AppState {
       username: string;
       connectedAt: number | undefined;
       scopes: string[];
+    };
+    colabCloud: {
+      accessToken: string;
+      refreshToken: string;
+      userId: string;
+      email: string;
+      name: string;
+      emailVerified: boolean;
+      connectedAt: number | undefined;
     };
   };
 }
@@ -411,6 +420,15 @@ const initialState: AppState = {
       username: "",
       connectedAt: undefined,
       scopes: [],
+    },
+    colabCloud: {
+      accessToken: "",
+      refreshToken: "",
+      userId: "",
+      email: "",
+      name: "",
+      emailVerified: false,
+      connectedAt: undefined,
     },
   },
 };

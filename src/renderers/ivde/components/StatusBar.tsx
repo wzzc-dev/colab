@@ -133,6 +133,8 @@ export const StatusBar = () => {
         <span>|</span>
         <GitHub />
         <span>|</span>
+        <ColabCloud />
+        <span>|</span>
         <Plugins />
         <AnalyticsConsent />
         <span>|</span>
@@ -382,9 +384,9 @@ const GitHub = () => {
   };
 
   return (
-    <div 
-      style={{ 
-        margin: "0 5px", 
+    <div
+      style={{
+        margin: "0 5px",
         color: getStatusColor(),
         cursor: "pointer",
         "white-space": "nowrap", // Prevent wrapping
@@ -392,6 +394,50 @@ const GitHub = () => {
       }}
       onClick={handleGitHubClick}
       title={isConnected() ? "GitHub connected - click to open settings" : "GitHub not connected - click to connect"}
+    >
+      {getStatusText()}
+    </div>
+  );
+};
+
+const ColabCloud = () => {
+  const isConnected = () => {
+    return state.appSettings.colabCloud?.accessToken && state.appSettings.colabCloud?.email;
+  };
+
+  const handleColabCloudClick = () => {
+    if (state.settingsPane.type === "colab-cloud-settings") {
+      setState("settingsPane", { type: "", data: {} });
+    } else {
+      setState("settingsPane", { type: "colab-cloud-settings", data: {} });
+    }
+  };
+
+  const getStatusText = () => {
+    if (isConnected()) {
+      const displayName = state.appSettings.colabCloud.name || state.appSettings.colabCloud.email;
+      return `Colab Cloud: ${displayName}`;
+    }
+    return "Colab Cloud";
+  };
+
+  const getStatusColor = () => {
+    if (!isConnected()) return "#666"; // Gray if not connected
+    if (!state.appSettings.colabCloud.emailVerified) return "#ffa500"; // Orange if email not verified
+    return "#51cf66"; // Green if fully connected
+  };
+
+  return (
+    <div
+      style={{
+        margin: "0 5px",
+        color: getStatusColor(),
+        cursor: "pointer",
+        "white-space": "nowrap",
+        "font-size": "11px"
+      }}
+      onClick={handleColabCloudClick}
+      title={isConnected() ? "Colab Cloud connected - click to open settings" : "Colab Cloud - click to login"}
     >
       {getStatusText()}
     </div>

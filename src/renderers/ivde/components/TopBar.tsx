@@ -96,6 +96,22 @@ export const TopBar = () => {
 
       <Update />
 
+      {/* Colab Cloud button */}
+      <div
+        style="font-size: 13px; margin: 8px 4px; cursor: pointer; display: flex; align-items: center; gap: 4px; background: #2d4a3e; border-radius: 4px; padding: 2px 8px;"
+        title="Open Colab Cloud dashboard"
+        onClick={() => {
+          const isDev = state.buildVars.channel === "dev";
+          const cloudUrl = isDev ? "http://127.0.0.1:8788/dashboard" : "https://cloud.blackboard.sh/dashboard";
+          openNewTabForNode("__COLAB_INTERNAL__/web", false, { url: cloudUrl });
+        }}
+      >
+        <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2">
+          <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
+        </svg>
+        <span style="color: #4ade80; font-weight: 500; font-size: 12px;">Cloud</span>
+      </div>
+
       {/* Colab button */}
       <div
         style={`font-size: 13px;margin: 8px 0px; margin-right: -2px; cursor: pointer; display: flex; align-items: center; gap: 6px; background: ${
