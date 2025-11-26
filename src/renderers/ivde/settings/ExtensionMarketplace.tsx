@@ -36,9 +36,19 @@ interface InstalledPlugin {
   localPath?: string;
 }
 
+interface EntitlementSummary {
+  category: string;
+  level: 'low' | 'medium' | 'high';
+  icon: string;
+  label: string;
+  description: string;
+}
+
 export const ExtensionMarketplace = (): JSXElement => {
   const [searchResults, setSearchResults] = createSignal<SearchResultItem[]>([]);
   const [installedPlugins, setInstalledPlugins] = createSignal<InstalledPlugin[]>([]);
+  const [pluginEntitlements, setPluginEntitlements] = createSignal<Record<string, EntitlementSummary[]>>({});
+  const [expandedEntitlements, setExpandedEntitlements] = createSignal<string | null>(null);
   const [searchQuery, setSearchQuery] = createSignal("");
   const [loading, setLoading] = createSignal(false);
   const [installing, setInstalling] = createSignal<string | null>(null);
@@ -49,6 +59,20 @@ export const ExtensionMarketplace = (): JSXElement => {
     try {
       const plugins = await electrobun.rpc?.request.pluginGetInstalled();
       setInstalledPlugins(plugins || []);
+
+      // Load entitlements for each plugin
+      const entitlements: Record<string, EntitlementSummary[]> = {};
+      for (const plugin of plugins || []) {
+        try {
+          const pluginEntitlements = await electrobun.rpc?.request.pluginGetEntitlements({ pluginName: plugin.name });
+          if (pluginEntitlements && pluginEntitlements.length > 0) {
+            entitlements[plugin.name] = pluginEntitlements;
+          }
+        } catch (e) {
+          // Ignore individual plugin errors
+        }
+      }
+      setPluginEntitlements(entitlements);
     } catch (err) {
       console.error("Failed to load installed plugins:", err);
     }
@@ -585,11 +609,66 @@ export const ExtensionMarketplace = (): JSXElement => {
                     {plugin.description}
                   </div>
                 </Show>
+                {/* Entitlements summary */}
+                <Show when={pluginEntitlements()[plugin.name]?.length > 0}>
+                  <div
+                    style={{
+                      display: "flex",
+                      "flex-wrap": "wrap",
+                      gap: "6px",
+                      "margin-top": "4px",
+                    }}
+                  >
+                    <For each={pluginEntitlements()[plugin.name]?.slice(0, expandedEntitlements() === plugin.name ? undefined : 3)}>
+                      {(ent) => (
+                        <span
+                          style={{
+                            "font-size": "10px",
+                            padding: "2px 6px",
+                            "border-radius": "3px",
+                            background: ent.level === 'high' ? '#3d2020' :
+                                       ent.level === 'medium' ? '#3d3520' : '#203520',
+                            color: ent.level === 'high' ? '#ff8080' :
+                                   ent.level === 'medium' ? '#ffc080' : '#80ff80',
+                            display: "flex",
+                            "align-items": "center",
+                            gap: "4px",
+                          }}
+                          title={ent.description}
+                        >
+                          <span>{ent.icon}</span>
+                          {ent.label}
+                        </span>
+                      )}
+                    </For>
+                    <Show when={(pluginEntitlements()[plugin.name]?.length || 0) > 3}>
+                      <button
+                        onClick={() => setExpandedEntitlements(
+                          expandedEntitlements() === plugin.name ? null : plugin.name
+                        )}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "#0073e6",
+                          "font-size": "10px",
+                          cursor: "pointer",
+                          padding: "2px 4px",
+                        }}
+                      >
+                        {expandedEntitlements() === plugin.name
+                          ? "show less"
+                          : `+${(pluginEntitlements()[plugin.name]?.length || 0) - 3} more`}
+                      </button>
+                    </Show>
+                  </div>
+                </Show>
+
                 <div
                   style={{
                     display: "flex",
                     gap: "8px",
                     "align-items": "center",
+                    "margin-top": "4px",
                   }}
                 >
                   <label
@@ -613,6 +692,20 @@ export const ExtensionMarketplace = (): JSXElement => {
                     Enabled
                   </label>
                   <div style={{ flex: "1" }} />
+                  <button
+                    onClick={() => setState("settingsPane", { type: "plugin-settings", data: { pluginName: plugin.name } })}
+                    style={{
+                      background: "transparent",
+                      color: "#0073e6",
+                      border: "1px solid #0073e6",
+                      padding: "4px 12px",
+                      "border-radius": "3px",
+                      cursor: "pointer",
+                      "font-size": "11px",
+                    }}
+                  >
+                    Settings
+                  </button>
                   <button
                     onClick={() => handleUninstall(plugin.name)}
                     disabled={installing() === plugin.name}

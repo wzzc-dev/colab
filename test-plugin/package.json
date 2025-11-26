@@ -8,7 +8,7 @@
   "license": "MIT",
   "colab-plugin": {
     "displayName": "Cat Image Replacer",
-    "description": "Replaces all images on web pages with random cat pictures from placekitten.com",
+    "description": "Replaces all images on web pages with random cat pictures from cataas.com",
     "main": "index.ts",
     "contributes": {
       "commands": [
@@ -23,9 +23,35 @@
       ],
       "webviewHooks": ["onLoad"]
     },
-    "permissions": {
-      "network": "allow",
-      "notifications": true
+    "entitlements": {
+      "network": {
+        "internet": true,
+        "domains": ["cataas.com", "thecatapi.com", "random.cat"],
+        "reason": "Fetches random cat images from various cat image APIs"
+      },
+      "webview": {
+        "scriptInjection": true,
+        "reason": "Injects preload script to replace all images with cat pictures"
+      },
+      "terminal": {
+        "commands": true,
+        "reason": "Registers the 'meow' terminal command"
+      },
+      "ui": {
+        "statusBar": true,
+        "contextMenu": true,
+        "fileDecorations": true,
+        "notifications": true,
+        "reason": "Displays cat mode status, adds context menu items, decorates TypeScript files with cat badge, shows notifications"
+      },
+      "editor": {
+        "completions": true,
+        "reason": "Provides cat-themed console.log snippets for JavaScript/TypeScript"
+      },
+      "keybindings": {
+        "global": true,
+        "reason": "Registers Ctrl+Shift+M keyboard shortcut to enable cat mode"
+      }
     },
     "activationEvents": ["*"]
   }

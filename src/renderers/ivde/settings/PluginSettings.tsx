@@ -33,9 +33,18 @@ interface SettingsSchema {
   fields: SettingField[];
 }
 
+interface EntitlementSummary {
+  category: string;
+  level: 'low' | 'medium' | 'high';
+  icon: string;
+  label: string;
+  description: string;
+}
+
 export const PluginSettings = (): JSXElement => {
   const [schema, setSchema] = createSignal<SettingsSchema | null>(null);
   const [values, setValues] = createSignal<Record<string, string | number | boolean>>({});
+  const [entitlements, setEntitlements] = createSignal<EntitlementSummary[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [pluginDisplayName, setPluginDisplayName] = createSignal<string>("");
 
@@ -53,9 +62,10 @@ export const PluginSettings = (): JSXElement => {
     }
 
     try {
-      const [schemaResult, valuesResult] = await Promise.all([
+      const [schemaResult, valuesResult, entitlementsResult] = await Promise.all([
         electrobun.rpc?.request.pluginGetSettingsSchema({ pluginName }),
         electrobun.rpc?.request.pluginGetSettingsValues({ pluginName }),
+        electrobun.rpc?.request.pluginGetEntitlements({ pluginName }),
       ]);
 
       if (schemaResult) {
@@ -64,6 +74,9 @@ export const PluginSettings = (): JSXElement => {
       }
       if (valuesResult) {
         setValues(valuesResult);
+      }
+      if (entitlementsResult) {
+        setEntitlements(entitlementsResult);
       }
     } catch (error) {
       console.error("Failed to load plugin settings:", error);
@@ -125,7 +138,7 @@ export const PluginSettings = (): JSXElement => {
           </button>
         </div>
 
-        <div style="flex: 1; overflow-y: auto; padding: 0; margin-bottom: 20px;">
+        <div style="flex: 1; overflow-y: auto; padding: 0; padding-bottom: 40px;">
           <Show when={loading()}>
             <div style="padding: 20px; text-align: center; color: #999;">
               Loading settings...
@@ -256,6 +269,75 @@ export const PluginSettings = (): JSXElement => {
                 )}
               </For>
             </SettingsPaneFormSection>
+          </Show>
+
+          {/* Entitlements Section */}
+          <Show when={!loading() && entitlements().length > 0}>
+            <div style="margin-top: 16px; border-top: 1px solid #333; padding-top: 16px;">
+              <SettingsPaneFormSection label="Declared Capabilities">
+                <div style="padding: 12px 16px;">
+                  <div style="background: #2a2a2a; border: 1px solid #444; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: flex-start; gap: 8px; color: #f0ad4e; font-size: 11px;">
+                      <span style="font-size: 14px;">⚠️</span>
+                      <div>
+                        <strong>Trust Notice:</strong> These are capabilities the plugin author declares it needs.
+                        They are <em>not enforced</em> by Colab. Only install plugins from sources you trust.
+                      </div>
+                    </div>
+                  </div>
+
+                  <For each={entitlements()}>
+                    {(entitlement) => (
+                      <div
+                        style={{
+                          display: "flex",
+                          "align-items": "flex-start",
+                          gap: "10px",
+                          padding: "8px 0",
+                          "border-bottom": "1px solid #333",
+                        }}
+                      >
+                        <span style="font-size: 18px; line-height: 1;">{entitlement.icon}</span>
+                        <div style="flex: 1;">
+                          <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 12px; color: #d9d9d9; font-weight: 500;">
+                              {entitlement.label}
+                            </span>
+                            <span
+                              style={{
+                                "font-size": "10px",
+                                padding: "2px 6px",
+                                "border-radius": "3px",
+                                background: entitlement.level === 'high' ? '#5c2626' :
+                                           entitlement.level === 'medium' ? '#4a4026' : '#2a3a2a',
+                                color: entitlement.level === 'high' ? '#f87171' :
+                                       entitlement.level === 'medium' ? '#fbbf24' : '#86efac',
+                              }}
+                            >
+                              {entitlement.level}
+                            </span>
+                          </div>
+                          <div style="font-size: 11px; color: #888; margin-top: 2px;">
+                            {entitlement.description}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </SettingsPaneFormSection>
+            </div>
+          </Show>
+
+          {/* No entitlements message */}
+          <Show when={!loading() && entitlements().length === 0 && schema()}>
+            <div style="margin-top: 16px; border-top: 1px solid #333; padding-top: 16px;">
+              <SettingsPaneFormSection label="Declared Capabilities">
+                <div style="padding: 12px 16px; color: #888; font-size: 12px;">
+                  This plugin has not declared any special capabilities.
+                </div>
+              </SettingsPaneFormSection>
+            </div>
           </Show>
         </div>
       </div>

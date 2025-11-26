@@ -20,7 +20,13 @@ export interface PluginManifest {
   icon?: string;
   /** What the plugin contributes to Colab */
   contributes?: PluginContributes;
-  /** Permissions the plugin requires */
+  /**
+   * Declared entitlements - what the plugin claims it needs access to.
+   * NOTE: These are NOT enforced. They are displayed to users so they can
+   * make informed trust decisions. Only install plugins from trusted sources.
+   */
+  entitlements?: PluginEntitlements;
+  /** @deprecated Use entitlements instead */
   permissions?: PluginPermissions;
   /** Activation events - when should this plugin be loaded */
   activationEvents?: ActivationEvent[];
@@ -88,9 +94,365 @@ export interface PluginConfigurationSchema {
 }
 
 // ============================================================================
-// Permissions
+// Entitlements (Declared Capabilities - NOT Enforced)
 // ============================================================================
 
+/**
+ * Plugin entitlements declare what capabilities a plugin claims to need.
+ *
+ * IMPORTANT: These are NOT enforced by Colab. Plugins run with full Bun runtime
+ * access and can technically do anything. Entitlements are displayed to users
+ * so they can make informed trust decisions about installing plugins.
+ *
+ * Only install plugins from sources you trust.
+ */
+export interface PluginEntitlements {
+  /** File system access */
+  filesystem?: {
+    /** Plugin reads files from the workspace */
+    read?: boolean;
+    /** Plugin writes/modifies files in the workspace */
+    write?: boolean;
+    /** Plugin accesses files outside the workspace */
+    fullAccess?: boolean;
+    /** Optional explanation of why this is needed */
+    reason?: string;
+  };
+
+  /** Network access */
+  network?: {
+    /** Plugin makes HTTP/HTTPS requests */
+    internet?: boolean;
+    /** Specific domains the plugin connects to (informational) */
+    domains?: string[];
+    /** Optional explanation */
+    reason?: string;
+  };
+
+  /** Process/shell execution */
+  process?: {
+    /** Plugin spawns child processes or runs shell commands */
+    spawn?: boolean;
+    /** Optional explanation */
+    reason?: string;
+  };
+
+  /** Terminal integration */
+  terminal?: {
+    /** Plugin reads terminal output */
+    read?: boolean;
+    /** Plugin sends input to terminals */
+    write?: boolean;
+    /** Plugin registers terminal commands */
+    commands?: boolean;
+    /** Optional explanation */
+    reason?: string;
+  };
+
+  /** Environment and system */
+  system?: {
+    /** Plugin reads environment variables */
+    environment?: boolean;
+    /** Plugin accesses system information */
+    systemInfo?: boolean;
+    /** Optional explanation */
+    reason?: string;
+  };
+
+  /** Webview/browser integration */
+  webview?: {
+    /** Plugin injects scripts into web pages */
+    scriptInjection?: boolean;
+    /** Plugin intercepts/modifies web requests */
+    requestInterception?: boolean;
+    /** Optional explanation */
+    reason?: string;
+  };
+
+  /** AI/LLM access */
+  ai?: {
+    /** Plugin uses local AI models */
+    localModels?: boolean;
+    /** Plugin sends data to external AI services */
+    externalServices?: boolean;
+    /** Optional explanation */
+    reason?: string;
+  };
+
+  /** Sensitive data */
+  sensitive?: {
+    /** Plugin may access credentials/tokens */
+    credentials?: boolean;
+    /** Plugin accesses clipboard */
+    clipboard?: boolean;
+    /** Optional explanation */
+    reason?: string;
+  };
+
+  /** UI contributions */
+  ui?: {
+    /** Plugin adds status bar items */
+    statusBar?: boolean;
+    /** Plugin adds context menu items */
+    contextMenu?: boolean;
+    /** Plugin adds file tree decorations/badges */
+    fileDecorations?: boolean;
+    /** Plugin shows notifications */
+    notifications?: boolean;
+    /** Optional explanation */
+    reason?: string;
+  };
+
+  /** Editor contributions */
+  editor?: {
+    /** Plugin provides code completions/snippets */
+    completions?: boolean;
+    /** Plugin provides hover information */
+    hover?: boolean;
+    /** Plugin provides code actions */
+    codeActions?: boolean;
+    /** Plugin provides diagnostics/linting */
+    diagnostics?: boolean;
+    /** Optional explanation */
+    reason?: string;
+  };
+
+  /** Keyboard shortcuts */
+  keybindings?: {
+    /** Plugin registers global keyboard shortcuts */
+    global?: boolean;
+    /** Plugin registers editor-specific shortcuts */
+    editor?: boolean;
+    /** Optional explanation */
+    reason?: string;
+  };
+}
+
+/**
+ * Get a human-readable summary of entitlements for display
+ */
+export function summarizeEntitlements(entitlements: PluginEntitlements | undefined): EntitlementSummary[] {
+  if (!entitlements) return [];
+
+  const summary: EntitlementSummary[] = [];
+
+  if (entitlements.filesystem) {
+    const fs = entitlements.filesystem;
+    if (fs.fullAccess) {
+      summary.push({
+        category: 'filesystem',
+        level: 'high',
+        icon: '📁',
+        label: 'Full File System Access',
+        description: fs.reason || 'Can read and write files anywhere on your system',
+      });
+    } else if (fs.write) {
+      summary.push({
+        category: 'filesystem',
+        level: 'medium',
+        icon: '📝',
+        label: 'File Read/Write',
+        description: fs.reason || 'Can read and modify files in your workspace',
+      });
+    } else if (fs.read) {
+      summary.push({
+        category: 'filesystem',
+        level: 'low',
+        icon: '📖',
+        label: 'File Read',
+        description: fs.reason || 'Can read files in your workspace',
+      });
+    }
+  }
+
+  if (entitlements.network) {
+    const net = entitlements.network;
+    if (net.internet) {
+      const domains = net.domains?.length ? ` (${net.domains.join(', ')})` : '';
+      summary.push({
+        category: 'network',
+        level: 'medium',
+        icon: '🌐',
+        label: 'Network Access' + domains,
+        description: net.reason || 'Can make requests to the internet',
+      });
+    }
+  }
+
+  if (entitlements.process?.spawn) {
+    summary.push({
+      category: 'process',
+      level: 'high',
+      icon: '⚙️',
+      label: 'Run Processes',
+      description: entitlements.process.reason || 'Can execute shell commands and spawn processes',
+    });
+  }
+
+  if (entitlements.terminal) {
+    const term = entitlements.terminal;
+    if (term.write) {
+      summary.push({
+        category: 'terminal',
+        level: 'medium',
+        icon: '💻',
+        label: 'Terminal Control',
+        description: term.reason || 'Can send commands to terminals',
+      });
+    } else if (term.read || term.commands) {
+      summary.push({
+        category: 'terminal',
+        level: 'low',
+        icon: '💻',
+        label: 'Terminal Integration',
+        description: term.reason || 'Integrates with the terminal',
+      });
+    }
+  }
+
+  if (entitlements.system) {
+    const sys = entitlements.system;
+    if (sys.environment) {
+      summary.push({
+        category: 'system',
+        level: 'medium',
+        icon: '🔧',
+        label: 'Environment Access',
+        description: sys.reason || 'Can read environment variables',
+      });
+    }
+  }
+
+  if (entitlements.webview) {
+    const wv = entitlements.webview;
+    if (wv.scriptInjection) {
+      summary.push({
+        category: 'webview',
+        level: 'medium',
+        icon: '🔌',
+        label: 'Web Page Scripts',
+        description: wv.reason || 'Injects scripts into web pages you visit',
+      });
+    }
+    if (wv.requestInterception) {
+      summary.push({
+        category: 'webview',
+        level: 'high',
+        icon: '🔍',
+        label: 'Web Request Access',
+        description: wv.reason || 'Can intercept web requests',
+      });
+    }
+  }
+
+  if (entitlements.ai) {
+    const ai = entitlements.ai;
+    if (ai.externalServices) {
+      summary.push({
+        category: 'ai',
+        level: 'medium',
+        icon: '🤖',
+        label: 'External AI Services',
+        description: ai.reason || 'Sends data to external AI services',
+      });
+    } else if (ai.localModels) {
+      summary.push({
+        category: 'ai',
+        level: 'low',
+        icon: '🤖',
+        label: 'Local AI Models',
+        description: ai.reason || 'Uses local AI models',
+      });
+    }
+  }
+
+  if (entitlements.sensitive) {
+    const sens = entitlements.sensitive;
+    if (sens.credentials) {
+      summary.push({
+        category: 'sensitive',
+        level: 'high',
+        icon: '🔑',
+        label: 'Credential Access',
+        description: sens.reason || 'May access stored credentials or tokens',
+      });
+    }
+    if (sens.clipboard) {
+      summary.push({
+        category: 'sensitive',
+        level: 'medium',
+        icon: '📋',
+        label: 'Clipboard Access',
+        description: sens.reason || 'Can read from or write to clipboard',
+      });
+    }
+  }
+
+  if (entitlements.ui) {
+    const ui = entitlements.ui;
+    const features: string[] = [];
+    if (ui.statusBar) features.push('status bar');
+    if (ui.contextMenu) features.push('context menus');
+    if (ui.fileDecorations) features.push('file badges');
+    if (ui.notifications) features.push('notifications');
+    if (features.length > 0) {
+      summary.push({
+        category: 'ui',
+        level: 'low',
+        icon: '🎨',
+        label: 'UI Elements',
+        description: ui.reason || `Adds ${features.join(', ')}`,
+      });
+    }
+  }
+
+  if (entitlements.editor) {
+    const ed = entitlements.editor;
+    const features: string[] = [];
+    if (ed.completions) features.push('completions');
+    if (ed.hover) features.push('hover info');
+    if (ed.codeActions) features.push('code actions');
+    if (ed.diagnostics) features.push('diagnostics');
+    if (features.length > 0) {
+      summary.push({
+        category: 'editor',
+        level: 'low',
+        icon: '✏️',
+        label: 'Editor Features',
+        description: ed.reason || `Provides ${features.join(', ')}`,
+      });
+    }
+  }
+
+  if (entitlements.keybindings) {
+    const kb = entitlements.keybindings;
+    if (kb.global || kb.editor) {
+      summary.push({
+        category: 'keybindings',
+        level: 'low',
+        icon: '⌨️',
+        label: 'Keyboard Shortcuts',
+        description: kb.reason || `Registers ${kb.global ? 'global' : 'editor'} keyboard shortcuts`,
+      });
+    }
+  }
+
+  return summary;
+}
+
+export interface EntitlementSummary {
+  category: string;
+  level: 'low' | 'medium' | 'high';
+  icon: string;
+  label: string;
+  description: string;
+}
+
+// ============================================================================
+// Legacy Permissions (deprecated, kept for compatibility)
+// ============================================================================
+
+/** @deprecated Use PluginEntitlements instead */
 export interface PluginPermissions {
   /** File system access level */
   fs?: 'none' | 'readonly' | 'readwrite';
@@ -108,6 +470,7 @@ export interface PluginPermissions {
   notifications?: boolean;
 }
 
+/** @deprecated */
 export const DEFAULT_PERMISSIONS: PluginPermissions = {
   fs: 'none',
   network: 'none',

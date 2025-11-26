@@ -2061,6 +2061,9 @@ const createWindow = (workspaceId: string, window?: WindowConfigType) => {
         pluginHasSettings: ({ pluginName }) => {
           return pluginManager.hasPluginSettings(pluginName);
         },
+        pluginGetEntitlements: ({ pluginName }) => {
+          return pluginManager.getPluginEntitlements(pluginName);
+        },
       },
 
       messages: {

@@ -888,6 +888,16 @@ export type WorkspaceRPC = {
         params: { pluginName: string };
         response: boolean;
       };
+      pluginGetEntitlements: {
+        params: { pluginName: string };
+        response: Array<{
+          category: string;
+          level: 'low' | 'medium' | 'high';
+          icon: string;
+          label: string;
+          description: string;
+        }>;
+      };
     };
     messages: {
       removeProjectDirectoryWatcher: {

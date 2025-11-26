@@ -20,8 +20,10 @@ import type {
   PluginAPI,
   PluginSettingsSchema,
   PluginSettingsValues,
+  PluginEntitlements,
+  EntitlementSummary,
 } from './types';
-import { DEFAULT_PERMISSIONS } from './types';
+import { DEFAULT_PERMISSIONS, summarizeEntitlements } from './types';
 
 // ============================================================================
 // Registry Management
@@ -1169,6 +1171,50 @@ class PluginManager {
         this.deactivatePlugin(name);
       }
     }
+  }
+
+  /**
+   * Refresh the manifest from disk for a plugin (useful for local dev plugins)
+   */
+  private refreshPluginManifest(name: string): PluginManifest | undefined {
+    const plugin = this.registry.plugins[name];
+    if (!plugin) return undefined;
+
+    try {
+      const packageJsonPath = join(plugin.installPath, 'package.json');
+      if (existsSync(packageJsonPath)) {
+        const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+        const manifest: PluginManifest = packageJson['colab-plugin'] || {};
+        // Update the cached manifest
+        plugin.manifest = manifest;
+        return manifest;
+      }
+    } catch (e) {
+      console.error(`[PluginManager] Failed to refresh manifest for ${name}:`, e);
+    }
+    return plugin.manifest;
+  }
+
+  /**
+   * Get entitlements summary for a plugin
+   */
+  getPluginEntitlements(name: string): EntitlementSummary[] {
+    const plugin = this.registry.plugins[name];
+    if (!plugin) return [];
+    // Refresh manifest from disk to get latest entitlements (especially for local dev plugins)
+    const manifest = this.refreshPluginManifest(name);
+    return summarizeEntitlements(manifest?.entitlements);
+  }
+
+  /**
+   * Get raw entitlements for a plugin
+   */
+  getPluginEntitlementsRaw(name: string): PluginEntitlements | undefined {
+    const plugin = this.registry.plugins[name];
+    if (!plugin) return undefined;
+    // Refresh manifest from disk to get latest entitlements
+    const manifest = this.refreshPluginManifest(name);
+    return manifest?.entitlements;
   }
 
   /**
