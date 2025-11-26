@@ -1,0 +1,32 @@
+{
+  "name": "colab-cat-replacer",
+  "version": "1.0.0",
+  "description": "Replaces all images on web pages with adorable cat pictures",
+  "main": "index.ts",
+  "keywords": ["colab-plugin"],
+  "author": "Colab Team",
+  "license": "MIT",
+  "colab-plugin": {
+    "displayName": "Cat Image Replacer",
+    "description": "Replaces all images on web pages with random cat pictures from placekitten.com",
+    "main": "index.ts",
+    "contributes": {
+      "commands": [
+        {
+          "id": "catReplacer.enable",
+          "title": "Enable Cat Mode"
+        },
+        {
+          "id": "catReplacer.disable",
+          "title": "Disable Cat Mode"
+        }
+      ],
+      "webviewHooks": ["onLoad"]
+    },
+    "permissions": {
+      "network": "allow",
+      "notifications": true
+    },
+    "activationEvents": ["*"]
+  }
+}
