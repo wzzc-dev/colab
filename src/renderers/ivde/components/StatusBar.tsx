@@ -133,7 +133,7 @@ export const StatusBar = () => {
         <span>|</span>
         <GitHub />
         <span>|</span>
-        <Extensions />
+        <Plugins />
         <AnalyticsConsent />
         <span>|</span>
         <Colab />
@@ -433,12 +433,12 @@ const AnalyticsConsent = () => {
   );
 };
 
-const Extensions = () => {
-  const handleExtensionsClick = () => {
-    if (state.settingsPane.type === "extension-marketplace") {
+const Plugins = () => {
+  const handlePluginsClick = () => {
+    if (state.settingsPane.type === "plugin-marketplace") {
       setState("settingsPane", { type: "", data: {} });
     } else {
-      setState("settingsPane", { type: "extension-marketplace", data: {} });
+      setState("settingsPane", { type: "plugin-marketplace", data: {} });
     }
   };
 
@@ -451,10 +451,10 @@ const Extensions = () => {
         "white-space": "nowrap",
         "font-size": "11px"
       }}
-      onClick={handleExtensionsClick}
-      title="Open Extensions Marketplace"
+      onClick={handlePluginsClick}
+      title="Open Plugins"
     >
-      Extensions
+      Plugins
     </div>
   );
 };

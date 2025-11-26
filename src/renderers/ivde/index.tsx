@@ -95,7 +95,7 @@ import { TopBar } from "./components/TopBar";
 import { type GitHubRepository, githubService } from "./services/githubService";
 import { GitHubSettings } from "./settings/GitHubSettings";
 import { LlamaSettings } from "./settings/LlamaSettings";
-import { ExtensionMarketplace } from "./settings/ExtensionMarketplace";
+import { PluginMarketplace } from "./settings/PluginMarketplace";
 import { PluginSettings } from "./settings/PluginSettings";
 import {
 	SettingsInputField,
@@ -702,8 +702,8 @@ const App = () => {
 									<Match when={state.settingsPane.type === "github-settings"}>
 										<GitHubSettings />
 									</Match>
-									<Match when={state.settingsPane.type === "extension-marketplace"}>
-										<ExtensionMarketplace />
+									<Match when={state.settingsPane.type === "plugin-marketplace"}>
+										<PluginMarketplace />
 									</Match>
 									<Match when={state.settingsPane.type === "plugin-settings"}>
 										<PluginSettings />

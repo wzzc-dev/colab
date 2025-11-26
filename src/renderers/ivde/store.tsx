@@ -214,7 +214,7 @@ export interface AppState {
       }
     | {
         // todo (yoav): may separate these out if they need to store metadata later
-        type: "global-settings" | "workspace-settings" | "llama-settings" | "github-settings" | "extension-marketplace";
+        type: "global-settings" | "workspace-settings" | "llama-settings" | "github-settings" | "plugin-marketplace";
         data: {};
       };
 

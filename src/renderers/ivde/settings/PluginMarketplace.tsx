@@ -44,7 +44,7 @@ interface EntitlementSummary {
   description: string;
 }
 
-export const ExtensionMarketplace = (): JSXElement => {
+export const PluginMarketplace = (): JSXElement => {
   const [searchResults, setSearchResults] = createSignal<SearchResultItem[]>([]);
   const [installedPlugins, setInstalledPlugins] = createSignal<InstalledPlugin[]>([]);
   const [pluginEntitlements, setPluginEntitlements] = createSignal<Record<string, EntitlementSummary[]>>({});
@@ -229,7 +229,7 @@ export const ExtensionMarketplace = (): JSXElement => {
             "line-height": "1.34",
           }}
         >
-          Extensions
+          Plugins
         </h1>
         <div style={{ "flex-grow": "1" }} />
         <button
@@ -323,7 +323,7 @@ export const ExtensionMarketplace = (): JSXElement => {
         >
           <input
             type="text"
-            placeholder="Search extensions..."
+            placeholder="Search plugins..."
             value={searchQuery()}
             onInput={(e) => setSearchQuery(e.currentTarget.value)}
             style={{
@@ -381,7 +381,7 @@ export const ExtensionMarketplace = (): JSXElement => {
                 "font-size": "12px",
               }}
             >
-              Searching extensions...
+              Searching plugins...
             </div>
           </Show>
 
@@ -394,9 +394,9 @@ export const ExtensionMarketplace = (): JSXElement => {
                 "font-size": "12px",
               }}
             >
-              <div style={{ "margin-bottom": "8px" }}>No extensions found</div>
+              <div style={{ "margin-bottom": "8px" }}>No plugins found</div>
               <div style={{ "font-size": "11px", color: "#666" }}>
-                Extensions must have "colab-plugin" in their keywords
+                Plugins must have "colab-plugin" in their keywords
               </div>
             </div>
           </Show>
@@ -518,9 +518,9 @@ export const ExtensionMarketplace = (): JSXElement => {
                 "font-size": "12px",
               }}
             >
-              <div style={{ "margin-bottom": "8px" }}>No extensions installed</div>
+              <div style={{ "margin-bottom": "8px" }}>No plugins installed</div>
               <div style={{ "font-size": "11px", color: "#666" }}>
-                Browse the marketplace to find and install extensions
+                Browse the marketplace to find and install plugins
               </div>
             </div>
           </Show>
