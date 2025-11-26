@@ -75,7 +75,13 @@ export const StatusBar = () => {
                 title={item.hasSettings ? `${item.tooltip || item.text} (click to configure)` : item.tooltip}
                 onClick={() => {
                   if (item.hasSettings) {
-                    setState("settingsPane", { type: "plugin-settings", data: { pluginName: item.pluginName } });
+                    // Toggle: close if already open for this plugin, otherwise open
+                    const currentData = state.settingsPane.data as { pluginName?: string } | undefined;
+                    if (state.settingsPane.type === "plugin-settings" && currentData?.pluginName === item.pluginName) {
+                      setState("settingsPane", { type: "", data: {} });
+                    } else {
+                      setState("settingsPane", { type: "plugin-settings", data: { pluginName: item.pluginName } });
+                    }
                   }
                 }}
               >
@@ -99,7 +105,13 @@ export const StatusBar = () => {
                 title={item.hasSettings ? `${item.tooltip || item.text} (click to configure)` : item.tooltip}
                 onClick={() => {
                   if (item.hasSettings) {
-                    setState("settingsPane", { type: "plugin-settings", data: { pluginName: item.pluginName } });
+                    // Toggle: close if already open for this plugin, otherwise open
+                    const currentData = state.settingsPane.data as { pluginName?: string } | undefined;
+                    if (state.settingsPane.type === "plugin-settings" && currentData?.pluginName === item.pluginName) {
+                      setState("settingsPane", { type: "", data: {} });
+                    } else {
+                      setState("settingsPane", { type: "plugin-settings", data: { pluginName: item.pluginName } });
+                    }
                   }
                 }}
               >
