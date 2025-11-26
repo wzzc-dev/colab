@@ -23,8 +23,11 @@ if (!existsSync(COLAB_PROJECTS_FOLDER)) {
 export const COLAB_GOLDFISHDB_PATH = join(COLAB_HOME_FOLDER, ".goldfishdb");
 export const COLAB_DEPS_PATH = join(COLAB_HOME_FOLDER, ".deps");
 export const COLAB_MODELS_PATH = join(COLAB_HOME_FOLDER, "models");
+export const COLAB_PLUGINS_PATH = join(COLAB_HOME_FOLDER, "plugins");
+export const COLAB_PLUGINS_REGISTRY_PATH = join(COLAB_PLUGINS_PATH, "registry.json");
 
 mkdirSync(COLAB_DEPS_PATH, { recursive: true });
+mkdirSync(COLAB_PLUGINS_PATH, { recursive: true });
 
 // Create models directory lazily to avoid startup issues
 try {

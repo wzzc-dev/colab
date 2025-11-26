@@ -148,6 +148,66 @@ monaco.languages.typescript.typescriptDefaults.setModeConfiguration({
   completionItems: false,
 });
 
+// Register plugin completion provider for all languages
+const pluginCompletionLanguages = ['typescript', 'javascript', 'typescriptreact', 'javascriptreact'];
+pluginCompletionLanguages.forEach(lang => {
+  monaco.languages.registerCompletionItemProvider(lang, {
+    triggerCharacters: ['.', '(', '"', "'", '`', '<', '/', '@', '#'],
+    provideCompletionItems: async (model, position, context, token) => {
+      try {
+        const lineText = model.getLineContent(position.lineNumber);
+        const linePrefix = lineText.substring(0, position.column - 1);
+
+        const completions = await electrobun.rpc?.request.pluginGetCompletions({
+          language: lang,
+          linePrefix,
+          lineText,
+          lineNumber: position.lineNumber,
+          column: position.column,
+          filePath: model.uri.path,
+          triggerCharacter: context.triggerCharacter,
+        });
+
+        if (!completions || completions.length === 0) {
+          return { suggestions: [] };
+        }
+
+        const kindMap: Record<string, monaco.languages.CompletionItemKind> = {
+          'function': monaco.languages.CompletionItemKind.Function,
+          'snippet': monaco.languages.CompletionItemKind.Snippet,
+          'text': monaco.languages.CompletionItemKind.Text,
+          'keyword': monaco.languages.CompletionItemKind.Keyword,
+          'variable': monaco.languages.CompletionItemKind.Variable,
+          'class': monaco.languages.CompletionItemKind.Class,
+          'method': monaco.languages.CompletionItemKind.Method,
+          'property': monaco.languages.CompletionItemKind.Property,
+        };
+
+        const suggestions: monaco.languages.CompletionItem[] = completions.map((item, index) => ({
+          label: item.label,
+          kind: kindMap[item.kind || 'snippet'] || monaco.languages.CompletionItemKind.Snippet,
+          insertText: item.insertText,
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          detail: item.detail,
+          documentation: item.documentation,
+          sortText: `0${index}`, // Ensure plugin completions appear at top
+          range: {
+            startLineNumber: position.lineNumber,
+            startColumn: position.column,
+            endLineNumber: position.lineNumber,
+            endColumn: position.column,
+          },
+        }));
+
+        return { suggestions };
+      } catch (error) {
+        console.error('Failed to get plugin completions:', error);
+        return { suggestions: [] };
+      }
+    },
+  });
+});
+
 // const libSource = `
 //     declare var React: any;
 // `;

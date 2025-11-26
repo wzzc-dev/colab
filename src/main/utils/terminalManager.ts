@@ -9,6 +9,7 @@ export interface TerminalSession {
   shell: string;
   ready: boolean;
   currentCwd?: string; // Track the current working directory
+  inputBuffer: string; // Buffer for collecting input until Enter
 }
 
 interface PtyMessage {
@@ -34,12 +35,34 @@ interface PtyResponse {
   error_msg?: string;
 }
 
+// Plugin command handler type
+type PluginCommandChecker = (commandLine: string) => string | null;
+type PluginCommandExecutor = (
+  commandLine: string,
+  terminalId: string,
+  cwd: string,
+  write: (text: string) => void
+) => Promise<boolean>;
+
 class TerminalManager {
   private terminals: Map<string, TerminalSession> = new Map();
   private messageHandler?: (message: any) => void;
+  private pluginCommandChecker?: PluginCommandChecker;
+  private pluginCommandExecutor?: PluginCommandExecutor;
 
   setMessageHandler(handler: (message: any) => void) {
     this.messageHandler = handler;
+  }
+
+  /**
+   * Set the plugin command handlers for intercepting terminal input
+   */
+  setPluginCommandHandlers(
+    checker: PluginCommandChecker,
+    executor: PluginCommandExecutor
+  ) {
+    this.pluginCommandChecker = checker;
+    this.pluginCommandExecutor = executor;
   }
 
   createTerminal(cwd: string = process.cwd(), shell?: string, cols: number = 80, rows: number = 24): string {
@@ -71,6 +94,7 @@ class TerminalManager {
       shell: terminalShell,
       ready: false,
       currentCwd: cwd, // Initialize with the starting directory
+      inputBuffer: '', // Buffer for plugin command detection
     };
 
     // Handle PTY output
@@ -220,21 +244,79 @@ class TerminalManager {
       console.log("Terminal not found:", { terminal: !!terminal });
       return false;
     }
-    
+
     if (!terminal.ready) {
       console.log("Terminal not ready yet");
       return false;
     }
-    
+
     try {
-      // Send input directly to PTY binary
+      // Check for plugin command interception
+      if (this.pluginCommandChecker && this.pluginCommandExecutor) {
+        // Handle special characters
+        if (data === '\r' || data === '\n') {
+          // Enter pressed - check if buffer matches a plugin command
+          const commandLine = terminal.inputBuffer.trim();
+          const pluginCommand = this.pluginCommandChecker(commandLine);
+
+          if (pluginCommand) {
+            // Clear the buffer
+            terminal.inputBuffer = '';
+
+            // Echo newline to terminal
+            this.messageHandler?.({
+              type: "terminalOutput",
+              terminalId,
+              data: '\r\n',
+            });
+
+            // Execute plugin command and stream output
+            const write = (text: string) => {
+              this.messageHandler?.({
+                type: "terminalOutput",
+                terminalId,
+                data: text,
+              });
+            };
+
+            const cwd = terminal.currentCwd || terminal.cwd;
+            this.pluginCommandExecutor(commandLine, terminalId, cwd, write).then(() => {
+              // Show a new prompt after command completes
+              // Send empty input to trigger shell prompt
+              this.sendPtyMessage(terminalId, {
+                type: 'input',
+                input: { data: '' }
+              });
+            });
+
+            return true;
+          }
+
+          // Not a plugin command, clear buffer and send to PTY
+          terminal.inputBuffer = '';
+        } else if (data === '\x7f' || data === '\b') {
+          // Backspace - remove last char from buffer
+          terminal.inputBuffer = terminal.inputBuffer.slice(0, -1);
+        } else if (data === '\x03') {
+          // Ctrl+C - clear buffer
+          terminal.inputBuffer = '';
+        } else if (data === '\x15') {
+          // Ctrl+U - clear line/buffer
+          terminal.inputBuffer = '';
+        } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
+          // Regular printable character - add to buffer
+          terminal.inputBuffer += data;
+        }
+      }
+
+      // Send input to PTY binary
       this.sendPtyMessage(terminalId, {
         type: 'input',
         input: {
           data: data
         }
       });
-      
+
       return true;
     } catch (error) {
       console.error("Error writing to PTY terminal:", error);

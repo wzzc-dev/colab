@@ -1,10 +1,48 @@
 import { getWindow } from "../store";
 import { state, setState } from "../store";
-import { createSignal, onMount } from "solid-js";
+import { createSignal, onMount, For } from "solid-js";
 import { aiCompletionService } from "../services/aiCompletionService";
 import { electrobun } from "../init";
 
+// Type for status bar items from plugins
+interface PluginStatusBarItem {
+  id: string;
+  text: string;
+  tooltip?: string;
+  color?: string;
+  priority?: number;
+  alignment?: 'left' | 'right';
+}
+
 export const StatusBar = () => {
+  const [pluginItems, setPluginItems] = createSignal<PluginStatusBarItem[]>([]);
+
+  // Fetch plugin status bar items periodically
+  onMount(() => {
+    const fetchPluginItems = async () => {
+      try {
+        const items = await electrobun.rpc?.request.pluginGetStatusBarItems();
+        if (items) {
+          setPluginItems(items);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch plugin status bar items:', err);
+      }
+    };
+
+    fetchPluginItems();
+    const interval = setInterval(fetchPluginItems, 2000); // Refresh every 2 seconds
+    return () => clearInterval(interval);
+  });
+
+  const leftPluginItems = () => pluginItems()
+    .filter(item => item.alignment === 'left')
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+  const rightPluginItems = () => pluginItems()
+    .filter(item => item.alignment !== 'left')
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
   return (
     <div
       style={{
@@ -20,11 +58,45 @@ export const StatusBar = () => {
         "box-sizing": "border-box",
       }}
     >
-      <div style={{ display: "flex", height: "18px" }}>
+      <div style={{ display: "flex", height: "18px", "align-items": "center" }}>
         <Workspace />
+        <For each={leftPluginItems()}>
+          {(item) => (
+            <>
+              <span>|</span>
+              <div
+                style={{
+                  margin: "0 5px",
+                  color: item.color || "#999",
+                  cursor: "default",
+                }}
+                title={item.tooltip}
+              >
+                {item.text}
+              </div>
+            </>
+          )}
+        </For>
       </div>
       <div style={{ "flex-grow": 1 }} />
-      <div style={{ display: "flex", height: "18px" }}>
+      <div style={{ display: "flex", height: "18px", "align-items": "center" }}>
+        <For each={rightPluginItems()}>
+          {(item) => (
+            <>
+              <div
+                style={{
+                  margin: "0 5px",
+                  color: item.color || "#999",
+                  cursor: "default",
+                }}
+                title={item.tooltip}
+              >
+                {item.text}
+              </div>
+              <span>|</span>
+            </>
+          )}
+        </For>
         <Git />
         <span>|</span>
         <Bun />
@@ -36,6 +108,8 @@ export const StatusBar = () => {
         <Llama />
         <span>|</span>
         <GitHub />
+        <span>|</span>
+        <Extensions />
         <AnalyticsConsent />
         <span>|</span>
         <Colab />
@@ -318,9 +392,9 @@ const AnalyticsConsent = () => {
   return (
     <>
       <span>|</span>
-      <div 
-        style={{ 
-          margin: "0 5px", 
+      <div
+        style={{
+          margin: "0 5px",
           color: "#ffa500", // Orange to indicate action needed
           cursor: "pointer",
           "white-space": "nowrap",
@@ -332,5 +406,31 @@ const AnalyticsConsent = () => {
         Enable Analytics
       </div>
     </>
+  );
+};
+
+const Extensions = () => {
+  const handleExtensionsClick = () => {
+    if (state.settingsPane.type === "extension-marketplace") {
+      setState("settingsPane", { type: "", data: {} });
+    } else {
+      setState("settingsPane", { type: "extension-marketplace", data: {} });
+    }
+  };
+
+  return (
+    <div
+      style={{
+        margin: "0 5px",
+        color: "#999",
+        cursor: "pointer",
+        "white-space": "nowrap",
+        "font-size": "11px"
+      }}
+      onClick={handleExtensionsClick}
+      title="Open Extensions Marketplace"
+    >
+      Extensions
+    </div>
   );
 };

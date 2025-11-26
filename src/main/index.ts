@@ -135,6 +135,7 @@ import {
   getSiteIdForSlug,
   getSitesForToken,
 } from "./utils/webflowUtils";
+import { pluginManager, searchPlugins, getPackageInfo } from "./plugins";
 
 const localInfo = await Updater.getLocallocalInfo();
 
@@ -173,6 +174,17 @@ const updateCache: {
 typescript.install();
 biome.install();
 // Note: llama-cli is bundled with the app, not downloaded
+
+// Activate all enabled plugins
+pluginManager.activateAllEnabled().catch((e) => {
+  console.warn('Failed to activate plugins on startup:', e);
+});
+
+// Wire up plugin terminal commands to terminal manager
+terminalManager.setPluginCommandHandlers(
+  (commandLine) => pluginManager.getTerminalCommand(commandLine),
+  (commandLine, terminalId, cwd, write) => pluginManager.executeTerminalCommand(commandLine, terminalId, cwd, write)
+);
 
 // END SETUP
 const checkForUpdate = async () => {
@@ -551,13 +563,21 @@ Electrobun.events.on("context-menu-clicked", (e) => {
   } else if (action === "fully_delete_node_from_disk") {
     const { workspaceId, windowId, nodePath, projectId } = data;
     console.log("fully_delete_node_from_disk", nodePath, projectId);
-    
+
     // If this is a project node, also remove it from the database
     if (projectId) {
       deleteProject(workspaceId, projectId);
     }
-    
+
     safeTrashFileOrFolder(nodePath);
+  } else if (action === "plugin_context_menu_item") {
+    const { itemId, filePath } = data;
+    console.log("plugin_context_menu_item", itemId, filePath);
+
+    // Execute the plugin context menu handler
+    pluginManager.executeContextMenuItem(itemId, { filePath }).catch((err) => {
+      console.error("Failed to execute plugin context menu item:", err);
+    });
   } else if (action === "split_pane_container") {
     const { workspaceId, windowId, pathToPane, direction } = data;
 
@@ -1876,7 +1896,7 @@ const createWindow = (workspaceId: string, window?: WindowConfigType) => {
         },
         llamaRemoveModel: async ({ modelPath }: { modelPath: string }) => {
           const fs = await import("fs");
-          
+
           try {
             if (fs.existsSync(modelPath)) {
               fs.unlinkSync(modelPath);
@@ -1890,6 +1910,140 @@ const createWindow = (workspaceId: string, window?: WindowConfigType) => {
               error: error instanceof Error ? error.message : 'Failed to remove model'
             };
           }
+        },
+
+        // Plugin system handlers
+        pluginSearch: async ({ query, size, from }) => {
+          return searchPlugins({ query, size, from });
+        },
+
+        pluginGetInfo: async ({ packageName, version }) => {
+          return getPackageInfo(packageName, version);
+        },
+
+        pluginInstall: async ({ packageName, version }) => {
+          try {
+            const plugin = await pluginManager.installPlugin(packageName, version);
+            return {
+              ok: true,
+              plugin: {
+                name: plugin.name,
+                version: plugin.version,
+                state: plugin.state,
+                enabled: plugin.enabled,
+              },
+            };
+          } catch (error) {
+            return {
+              ok: false,
+              error: error instanceof Error ? error.message : 'Failed to install plugin',
+            };
+          }
+        },
+
+        pluginUninstall: async ({ packageName }) => {
+          try {
+            await pluginManager.uninstallPlugin(packageName);
+            return { ok: true };
+          } catch (error) {
+            return {
+              ok: false,
+              error: error instanceof Error ? error.message : 'Failed to uninstall plugin',
+            };
+          }
+        },
+
+        pluginActivate: async ({ packageName }) => {
+          try {
+            await pluginManager.activatePlugin(packageName);
+            return { ok: true };
+          } catch (error) {
+            return {
+              ok: false,
+              error: error instanceof Error ? error.message : 'Failed to activate plugin',
+            };
+          }
+        },
+
+        pluginDeactivate: async ({ packageName }) => {
+          try {
+            await pluginManager.deactivatePlugin(packageName);
+            return { ok: true };
+          } catch (error) {
+            return {
+              ok: false,
+              error: error instanceof Error ? error.message : 'Failed to deactivate plugin',
+            };
+          }
+        },
+
+        pluginSetEnabled: async ({ packageName, enabled }) => {
+          try {
+            pluginManager.setPluginEnabled(packageName, enabled);
+            return { ok: true };
+          } catch (error) {
+            return {
+              ok: false,
+              error: error instanceof Error ? error.message : 'Failed to update plugin',
+            };
+          }
+        },
+
+        pluginGetInstalled: () => {
+          return pluginManager.getInstalledPlugins().map((p) => ({
+            name: p.name,
+            version: p.version,
+            displayName: p.manifest.displayName,
+            description: p.manifest.description,
+            state: p.state,
+            enabled: p.enabled,
+            installedAt: p.installedAt,
+            updatedAt: p.updatedAt,
+            isLocal: p.isLocal,
+            localPath: p.localPath,
+          }));
+        },
+
+        pluginExecuteCommand: async ({ commandId, args }) => {
+          try {
+            const result = await pluginManager.executeCommand(commandId, ...(args || []));
+            return { ok: true, result };
+          } catch (error) {
+            return {
+              ok: false,
+              error: error instanceof Error ? error.message : 'Failed to execute command',
+            };
+          }
+        },
+        pluginGetPreloadScripts: () => {
+          return pluginManager.getAllPreloadScripts();
+        },
+        pluginGetCompletions: async (params) => {
+          return pluginManager.getCompletions(params.language, {
+            linePrefix: params.linePrefix,
+            lineText: params.lineText,
+            lineNumber: params.lineNumber,
+            column: params.column,
+            filePath: params.filePath,
+            triggerCharacter: params.triggerCharacter,
+          });
+        },
+        pluginGetStatusBarItems: () => {
+          return pluginManager.getStatusBarItems();
+        },
+        pluginGetFileDecoration: async ({ filePath }) => {
+          const decoration = await pluginManager.getFileDecoration(filePath);
+          return decoration || null;
+        },
+        pluginGetContextMenuItems: ({ context }) => {
+          return pluginManager.getContextMenuItems(context);
+        },
+        pluginExecuteContextMenuItem: async ({ itemId, filePath, selection }) => {
+          await pluginManager.executeContextMenuItem(itemId, { filePath, selection });
+          return { ok: true };
+        },
+        pluginGetKeybindings: () => {
+          return pluginManager.getKeybindings();
         },
       },
 
@@ -2319,26 +2473,40 @@ function cleanupLlamaProcesses() {
   }
 }
 
+// Cleanup function for plugins
+async function cleanupPlugins() {
+  console.log('🧹 Cleaning up plugins...');
+  try {
+    await pluginManager.shutdown();
+  } catch (e) {
+    console.warn('Failed to shutdown plugins:', e);
+  }
+}
+
 // Handle process termination signals
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('Received SIGINT, cleaning up...');
   cleanupLlamaProcesses();
+  await cleanupPlugins();
   process.exit(0);
 });
 
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('Received SIGTERM, cleaning up...');
   cleanupLlamaProcesses();
+  await cleanupPlugins();
   process.exit(0);
 });
 
-process.on('beforeExit', () => {
+process.on('beforeExit', async () => {
   console.log('Process beforeExit, cleaning up...');
   cleanupLlamaProcesses();
+  await cleanupPlugins();
 });
 
 // Handle app quit - add cleanup when quit is called
 process.on('exit', () => {
-  console.log('Process exiting, cleaning up llama processes...');
+  console.log('Process exiting, cleaning up...');
   cleanupLlamaProcesses();
+  // Note: can't await async in exit handler, plugins should already be cleaned up
 });

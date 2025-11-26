@@ -653,6 +653,187 @@ export type WorkspaceRPC = {
           error?: string;
         };
       };
+      // Plugin system
+      pluginSearch: {
+        params: {
+          query?: string;
+          size?: number;
+          from?: number;
+        };
+        response: {
+          results: Array<{
+            name: string;
+            version: string;
+            description?: string;
+            author?: string;
+            keywords?: string[];
+            date: string;
+            score: number;
+            hasColabPlugin: boolean;
+          }>;
+          total: number;
+        };
+      };
+      pluginGetInfo: {
+        params: {
+          packageName: string;
+          version?: string;
+        };
+        response: {
+          name: string;
+          version: string;
+          description?: string;
+          author?: string | { name: string; email?: string };
+          keywords?: string[];
+          'colab-plugin'?: any;
+        } | null;
+      };
+      pluginInstall: {
+        params: {
+          packageName: string;
+          version?: string;
+        };
+        response: {
+          ok: boolean;
+          plugin?: {
+            name: string;
+            version: string;
+            state: string;
+            enabled: boolean;
+          };
+          error?: string;
+        };
+      };
+      pluginUninstall: {
+        params: {
+          packageName: string;
+        };
+        response: {
+          ok: boolean;
+          error?: string;
+        };
+      };
+      pluginActivate: {
+        params: {
+          packageName: string;
+        };
+        response: {
+          ok: boolean;
+          error?: string;
+        };
+      };
+      pluginDeactivate: {
+        params: {
+          packageName: string;
+        };
+        response: {
+          ok: boolean;
+          error?: string;
+        };
+      };
+      pluginSetEnabled: {
+        params: {
+          packageName: string;
+          enabled: boolean;
+        };
+        response: {
+          ok: boolean;
+          error?: string;
+        };
+      };
+      pluginGetInstalled: {
+        params: void;
+        response: Array<{
+          name: string;
+          version: string;
+          displayName?: string;
+          description?: string;
+          state: string;
+          enabled: boolean;
+          installedAt: number;
+          updatedAt: number;
+          isLocal?: boolean;
+          localPath?: string;
+        }>;
+      };
+      pluginExecuteCommand: {
+        params: {
+          commandId: string;
+          args?: unknown[];
+        };
+        response: {
+          ok: boolean;
+          result?: unknown;
+          error?: string;
+        };
+      };
+      pluginGetPreloadScripts: {
+        params: void;
+        response: string;
+      };
+      pluginGetCompletions: {
+        params: {
+          language: string;
+          linePrefix: string;
+          lineText: string;
+          lineNumber: number;
+          column: number;
+          filePath: string;
+          triggerCharacter?: string;
+        };
+        response: Array<{
+          label: string;
+          insertText: string;
+          detail?: string;
+          documentation?: string;
+          kind?: string;
+        }>;
+      };
+      pluginGetStatusBarItems: {
+        params: void;
+        response: Array<{
+          id: string;
+          text: string;
+          tooltip?: string;
+          color?: string;
+          priority?: number;
+          alignment?: 'left' | 'right';
+        }>;
+      };
+      pluginGetFileDecoration: {
+        params: { filePath: string };
+        response: {
+          badge?: string;
+          badgeColor?: string;
+          tooltip?: string;
+          faded?: boolean;
+          color?: string;
+        } | null;
+      };
+      pluginGetContextMenuItems: {
+        params: { context: 'editor' | 'fileTree' };
+        response: Array<{
+          id: string;
+          label: string;
+          shortcutHint?: string;
+        }>;
+      };
+      pluginExecuteContextMenuItem: {
+        params: {
+          itemId: string;
+          filePath?: string;
+          selection?: string;
+        };
+        response: { ok: boolean };
+      };
+      pluginGetKeybindings: {
+        params: void;
+        response: Array<{
+          key: string;
+          command: string;
+          when?: 'editor' | 'terminal' | 'global';
+        }>;
+      };
     };
     messages: {
       removeProjectDirectoryWatcher: {

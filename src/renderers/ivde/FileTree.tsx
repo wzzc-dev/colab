@@ -10,6 +10,7 @@ import {
   createEffect,
   createMemo,
   createSignal,
+  createResource,
 } from "solid-js";
 import { produce, unwrap } from "solid-js/store";
 import type {
@@ -42,6 +43,35 @@ import { electrobun } from "./init";
 import { parentNodePath } from "../utils/fileUtils";
 
 import { join, basename, dirname } from "../utils/pathUtils";
+
+// Type for plugin file decorations
+interface FileDecoration {
+  badge?: string;
+  badgeColor?: string;
+  tooltip?: string;
+  faded?: boolean;
+  color?: string;
+}
+
+// Cache for file decorations to avoid repeated RPC calls
+const fileDecorationCache: Map<string, { decoration: FileDecoration | null; timestamp: number }> = new Map();
+const DECORATION_CACHE_TTL = 5000; // 5 seconds
+
+async function getFileDecoration(filePath: string): Promise<FileDecoration | null> {
+  const cached = fileDecorationCache.get(filePath);
+  if (cached && Date.now() - cached.timestamp < DECORATION_CACHE_TTL) {
+    return cached.decoration;
+  }
+
+  try {
+    const decoration = await electrobun.rpc?.request.pluginGetFileDecoration({ filePath });
+    fileDecorationCache.set(filePath, { decoration: decoration || null, timestamp: Date.now() });
+    return decoration || null;
+  } catch (err) {
+    console.warn('Failed to fetch file decoration:', err);
+    return null;
+  }
+}
 
 const makeSafeSerializer = () => {
   const seen = new WeakSet();
@@ -845,6 +875,16 @@ const NodeName = ({
   const [isHovered, setIsHovered] = createSignal(false);
   const [isDragging, setIsDragging] = createSignal(false);
   const [isExpandHovered, setIsExpandHovered] = createSignal(false);
+
+  // Fetch file decoration from plugins
+  const [fileDecoration] = createResource(
+    () => nodeToRender()?.path,
+    async (path) => {
+      if (!path || path.startsWith("__COLAB_INTERNAL__")) return null;
+      return getFileDecoration(path);
+    }
+  );
+
   const isNodeAncestorBeingEdited = () => {
     if ("node" in state.settingsPane.data) {
       const editedNodePath = state.settingsPane.data.node.path;
@@ -1257,6 +1297,29 @@ const NodeName = ({
           {
             type: "separator",
           },
+        ];
+
+      // Fetch and add plugin context menu items
+      try {
+        const pluginMenuItems = await electrobun.rpc?.request.pluginGetContextMenuItems({ context: 'fileTree' });
+        if (pluginMenuItems && pluginMenuItems.length > 0) {
+          menuItems.push(
+            ...pluginMenuItems.map((item) => ({
+              label: item.label,
+              accelerator: item.shortcutHint,
+              ...createContextMenuAction("plugin_context_menu_item", {
+                itemId: item.id,
+                filePath: _nodeToRender.path,
+              }),
+            })),
+            { type: "separator" }
+          );
+        }
+      } catch (err) {
+        console.warn('Failed to fetch plugin context menu items:', err);
+      }
+
+      menuItems.push(
           {
             label: "Remove Project from Colab",
             hidden: readonly || getSlateForNode(_nodeToRender)?.type !== "project",
@@ -1272,7 +1335,7 @@ const NodeName = ({
               projectId: getSlateForNode(_nodeToRender)?.type === "project" ? getProjectForNode(_nodeToRender)?.id : undefined,
             }),
           },
-        ];
+        );
 
       await electrobun.rpc?.request.showContextMenu({
         menuItems,
@@ -1670,19 +1733,20 @@ const NodeName = ({
         >
           <span
             style={{
-              color: "#333",
+              color: fileDecoration()?.color || "#333",
               background: "transparent",
+              opacity: fileDecoration()?.faded ? 0.5 : 1,
             }}
           >
 {(() => {
               const slate = getSlateForNode(nodeToRender());
               const node = nodeToRender();
-              
+
               // If we're hovering and it's a slate with a different display name, show folder name
               if (isHovered() && slate && slate.name && slate.name !== node.name) {
                 return slate?.name || node.name;
               }
-              
+
               // Otherwise show the display name (slate name or folder name)
               return node.name;
             })()}
@@ -1699,6 +1763,20 @@ const NodeName = ({
               }}
             >
               •
+            </span>
+          </Show>
+
+          {/* Plugin file decoration badge */}
+          <Show when={fileDecoration()?.badge}>
+            <span
+              style={{
+                "margin-left": "4px",
+                "font-size": "11px",
+                color: fileDecoration()?.badgeColor || "#666",
+              }}
+              title={fileDecoration()?.tooltip}
+            >
+              {fileDecoration()?.badge}
             </span>
           </Show>
         </span>

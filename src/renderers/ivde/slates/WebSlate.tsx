@@ -44,6 +44,32 @@ const colabPreloadScript = `
 
 `;
 
+// Cache plugin preloads at module level (shared across all WebSlate instances)
+let cachedPluginPreloads: string | null = null;
+let pluginPreloadsPromise: Promise<string> | null = null;
+
+async function getPluginPreloads(): Promise<string> {
+  if (cachedPluginPreloads !== null) {
+    return cachedPluginPreloads;
+  }
+  if (pluginPreloadsPromise) {
+    return pluginPreloadsPromise;
+  }
+  pluginPreloadsPromise = (async () => {
+    try {
+      const { electrobun } = await import("../init");
+      const scripts = await electrobun.rpc?.request.pluginGetPreloadScripts();
+      cachedPluginPreloads = scripts || "";
+      return cachedPluginPreloads;
+    } catch (err) {
+      console.warn('Failed to load plugin preload scripts:', err);
+      cachedPluginPreloads = "";
+      return "";
+    }
+  })();
+  return pluginPreloadsPromise;
+}
+
 // WebSlates typically have a 'home' path, saved to the node's web slate
 // and a 'current url' saved to the tab's url. This lets you open multiple tabs to
 // say google or webflow, and have each one navigate around independently and remember
@@ -476,18 +502,24 @@ console.log('Preload script loaded for:', window.location.href);
 
   const [preloadContent, setPreloadContent] = createSignal("");
   const [preloadLoaded, setPreloadLoaded] = createSignal(false);
+  const [pluginPreloads, setPluginPreloads] = createSignal(cachedPluginPreloads || "");
 
   // Load preload content - runs whenever preloadFilePath changes or file cache updates
   createEffect(() => {
-    if (!preloadFilePath()) {
-      setPreloadContent("");
-      setPreloadLoaded(true); // No preload file, so we're "loaded"
-      return;
-    }
-
     setPreloadLoaded(false); // Start loading
 
-    const loadPreloadContent = async () => {
+    const loadAllPreloads = async () => {
+      // Load plugin preloads (cached at module level)
+      const plugins = await getPluginPreloads();
+      setPluginPreloads(plugins);
+
+      // Load node-specific preload if applicable
+      if (!preloadFilePath()) {
+        setPreloadContent("");
+        setPreloadLoaded(true);
+        return;
+      }
+
       // Always try to read the file directly first - this ensures we get the latest content
       try {
         const { textContent } = await electrobun.rpc?.request.readFile({ path: preloadFilePath() }) || {};
@@ -513,7 +545,7 @@ console.log('Preload script loaded for:', window.location.href);
       setPreloadLoaded(true);
     };
 
-    loadPreloadContent();
+    loadAllPreloads();
   });
   
   // Also watch for changes in the file cache for this specific preload file
@@ -528,7 +560,21 @@ console.log('Preload script loaded for:', window.location.href);
   });
 
   const preloadScript = () => {
-    return colabPreloadScript + ";\n " + preloadContent();
+    const parts = [colabPreloadScript];
+
+    // Add plugin preloads
+    const pluginScripts = pluginPreloads();
+    if (pluginScripts) {
+      parts.push(pluginScripts);
+    }
+
+    // Add node-specific preload
+    const nodePreload = preloadContent();
+    if (nodePreload) {
+      parts.push(nodePreload);
+    }
+
+    return parts.join(';\n');
   };
 
   return (

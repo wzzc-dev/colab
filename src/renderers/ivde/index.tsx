@@ -95,6 +95,7 @@ import { TopBar } from "./components/TopBar";
 import { type GitHubRepository, githubService } from "./services/githubService";
 import { GitHubSettings } from "./settings/GitHubSettings";
 import { LlamaSettings } from "./settings/LlamaSettings";
+import { ExtensionMarketplace } from "./settings/ExtensionMarketplace";
 import {
 	SettingsInputField,
 	SettingsPaneField,
@@ -303,9 +304,89 @@ document.addEventListener(
 			// split pane to the right
 			console.log("focos url bar");
 		}
+
+		// Check plugin keybindings (global context)
+		checkPluginKeybindings(e, 'global');
 	},
 	true,
 );
+
+// Plugin keybinding cache (refreshed periodically)
+let pluginKeybindingsCache: Array<{
+	key: string;
+	command: string;
+	when?: 'editor' | 'terminal' | 'global';
+}> = [];
+let keybindingsCacheTime = 0;
+const KEYBINDINGS_CACHE_TTL = 5000; // 5 seconds
+
+async function refreshPluginKeybindings() {
+	try {
+		const keybindings = await electrobun.rpc?.request.pluginGetKeybindings();
+		if (keybindings) {
+			pluginKeybindingsCache = keybindings;
+			keybindingsCacheTime = Date.now();
+		}
+	} catch (err) {
+		console.warn('Failed to fetch plugin keybindings:', err);
+	}
+}
+
+// Helper to parse a key string like "ctrl+shift+m" into modifiers
+function parseKeyString(keyStr: string): { key: string; ctrl: boolean; shift: boolean; alt: boolean; meta: boolean } {
+	const parts = keyStr.toLowerCase().split('+');
+	const key = parts[parts.length - 1];
+	return {
+		key,
+		ctrl: parts.includes('ctrl'),
+		shift: parts.includes('shift'),
+		alt: parts.includes('alt'),
+		meta: parts.includes('meta') || parts.includes('cmd'),
+	};
+}
+
+// Helper to check if an event matches a keybinding
+function matchesKeybinding(e: KeyboardEvent, keyStr: string): boolean {
+	const parsed = parseKeyString(keyStr);
+	return (
+		e.key.toLowerCase() === parsed.key &&
+		e.ctrlKey === parsed.ctrl &&
+		e.shiftKey === parsed.shift &&
+		e.altKey === parsed.alt &&
+		e.metaKey === parsed.meta
+	);
+}
+
+// Check and execute plugin keybindings
+async function checkPluginKeybindings(e: KeyboardEvent, context: 'editor' | 'terminal' | 'global') {
+	// Refresh cache if stale
+	if (Date.now() - keybindingsCacheTime > KEYBINDINGS_CACHE_TTL) {
+		await refreshPluginKeybindings();
+	}
+
+	for (const keybinding of pluginKeybindingsCache) {
+		// Check if the keybinding matches the current context
+		if (keybinding.when && keybinding.when !== context && keybinding.when !== 'global') {
+			continue;
+		}
+
+		if (matchesKeybinding(e, keybinding.key)) {
+			e.preventDefault();
+			e.stopImmediatePropagation();
+
+			// Execute the command via RPC
+			try {
+				await electrobun.rpc?.request.pluginExecuteCommand({
+					commandId: keybinding.command,
+					args: [],
+				});
+			} catch (err) {
+				console.error('Failed to execute plugin command:', err);
+			}
+			break;
+		}
+	}
+}
 
 const canOpenNodeInNewTab = (nodePath: string) => {
 	const draggedNode = getNode(nodePath);
@@ -619,6 +700,9 @@ const App = () => {
 									</Match>
 									<Match when={state.settingsPane.type === "github-settings"}>
 										<GitHubSettings />
+									</Match>
+									<Match when={state.settingsPane.type === "extension-marketplace"}>
+										<ExtensionMarketplace />
 									</Match>
 								</Switch>
 							</div>
