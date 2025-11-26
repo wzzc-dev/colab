@@ -1161,7 +1161,7 @@ class PluginManager {
     return this.activeWorkers.has(name);
   }
 
-  setPluginEnabled(name: string, enabled: boolean): void {
+  async setPluginEnabled(name: string, enabled: boolean): Promise<void> {
     const plugin = this.registry.plugins[name];
     if (plugin) {
       plugin.enabled = enabled;
@@ -1169,6 +1169,13 @@ class PluginManager {
 
       if (!enabled && this.activeWorkers.has(name)) {
         this.deactivatePlugin(name);
+      } else if (enabled && !this.activeWorkers.has(name)) {
+        // Activate the plugin if it's being enabled
+        try {
+          await this.activatePlugin(name);
+        } catch (e) {
+          console.error(`[PluginManager] Failed to activate plugin ${name}:`, e);
+        }
       }
     }
   }

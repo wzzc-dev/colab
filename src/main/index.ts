@@ -1979,7 +1979,7 @@ const createWindow = (workspaceId: string, window?: WindowConfigType) => {
 
         pluginSetEnabled: async ({ packageName, enabled }) => {
           try {
-            pluginManager.setPluginEnabled(packageName, enabled);
+            await pluginManager.setPluginEnabled(packageName, enabled);
             return { ok: true };
           } catch (error) {
             return {
