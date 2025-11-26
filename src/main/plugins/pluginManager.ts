@@ -113,7 +113,7 @@ class PluginManager {
   private registry: PluginRegistry;
   private activeWorkers: Map<string, PluginWorkerState> = new Map();
   private eventSubscribers: Map<string, Set<string>> = new Map(); // event -> plugin names
-  private commandHandlers: Map<string, string> = new Map(); // command id -> plugin name
+  private commandHandlers: Map<string, { pluginName: string; handler: (...args: unknown[]) => unknown }> = new Map(); // command id -> handler
   private preloadScripts: Map<string, Set<string>> = new Map(); // plugin name -> set of scripts
   private terminalCommands: Map<string, { pluginName: string; handler: TerminalCommandHandler }> = new Map(); // command name -> handler
   private completionProviders: Map<string, RegisteredCompletionProvider> = new Map(); // provider id -> provider
@@ -414,12 +414,8 @@ class PluginManager {
       plugin.state = 'active';
       plugin.error = undefined;
 
-      // Register commands
-      if (plugin.manifest.contributes?.commands) {
-        for (const cmd of plugin.manifest.contributes.commands) {
-          this.commandHandlers.set(cmd.id, packageName);
-        }
-      }
+      // Note: Commands are now registered dynamically via api.commands.registerCommand()
+      // in the plugin's activate() function, not from manifest.contributes.commands
 
       console.info(`[PluginManager] Plugin ${packageName} activated successfully`);
     } catch (error) {
@@ -446,8 +442,7 @@ class PluginManager {
       commands: {
         registerCommand(id: string, handler: (...args: unknown[]) => unknown) {
           const fullId = id.includes('.') ? id : `${pluginName}.${id}`;
-          self.commandHandlers.set(fullId, pluginName);
-          // Store handler for later - in v1 we just store the plugin name
+          self.commandHandlers.set(fullId, { pluginName, handler });
           return {
             dispose: () => {
               self.commandHandlers.delete(fullId);
@@ -710,10 +705,16 @@ class PluginManager {
     }
     this.activeWorkers.delete(packageName);
 
-    // Unregister commands
+    // Unregister commands (both manifest and dynamically registered)
     if (workerState.plugin.manifest.contributes?.commands) {
       for (const cmd of workerState.plugin.manifest.contributes.commands) {
         this.commandHandlers.delete(cmd.id);
+      }
+    }
+    // Also clean up dynamically registered commands
+    for (const [cmdId, registration] of this.commandHandlers) {
+      if (registration.pluginName === packageName) {
+        this.commandHandlers.delete(cmdId);
       }
     }
 
@@ -771,33 +772,25 @@ class PluginManager {
   // ==========================================================================
 
   async executeCommand(commandId: string, ...args: unknown[]): Promise<unknown> {
-    const pluginName = this.commandHandlers.get(commandId);
-    if (!pluginName) {
+    const registration = this.commandHandlers.get(commandId);
+    if (!registration) {
       throw new Error(`No handler registered for command: ${commandId}`);
     }
 
-    const workerState = this.activeWorkers.get(pluginName);
-    if (!workerState) {
+    const { pluginName, handler } = registration;
+
+    // Verify plugin is still active
+    if (!this.activeWorkers.has(pluginName)) {
       throw new Error(`Plugin ${pluginName} is not active`);
     }
 
-    const requestId = crypto.randomUUID();
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        workerState.pendingRequests.delete(requestId);
-        reject(new Error(`Command execution timeout: ${commandId}`));
-      }, 30000);
-
-      workerState.pendingRequests.set(requestId, { resolve, reject, timeout });
-
-      const msg: MainToWorkerMessage = {
-        type: 'command',
-        commandId,
-        args,
-      };
-      workerState.worker.postMessage({ ...msg, requestId });
-    });
+    // Directly call the handler (v1 direct module loading approach)
+    try {
+      return await Promise.resolve(handler(...args));
+    } catch (error) {
+      console.error(`[PluginManager] Command ${commandId} failed:`, error);
+      throw error;
+    }
   }
 
   // ==========================================================================

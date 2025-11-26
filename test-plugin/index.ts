@@ -47,11 +47,14 @@ export async function activate(api: PluginAPI): Promise<void> {
   disposables.push(preloadDisposable);
   api.log.info('Preload script registered for webviews');
 
-  // Register the enable command (for future use - could toggle cat mode on/off)
+  // We need to declare flashStatus before commands can use it, so commands are registered after status bar
+  let flashStatus: (message: string, duration?: number) => void = () => {};
+
+  // Register the enable command
   const enableDisposable = api.commands.registerCommand('catReplacer.enable', async () => {
     catModeEnabled = true;
     api.log.info('Cat mode enabled!');
-    api.notifications.showInfo('🐱 Cat Mode Enabled! All images are now cats.');
+    flashStatus('😻 CATS ENABLED! 😻', 3000);
     return { enabled: true };
   });
   disposables.push(enableDisposable);
@@ -60,7 +63,7 @@ export async function activate(api: PluginAPI): Promise<void> {
   const disableDisposable = api.commands.registerCommand('catReplacer.disable', async () => {
     catModeEnabled = false;
     api.log.info('Cat mode disabled!');
-    api.notifications.showInfo('😿 Cat Mode Disabled. Images restored.');
+    flashStatus('😿 Cats disabled...', 3000);
     return { enabled: false };
   });
   disposables.push(disableDisposable);
@@ -128,29 +131,26 @@ export async function activate(api: PluginAPI): Promise<void> {
   disposables.push(completionDisposable);
 
   // Create a status bar item that shows cat mode status
-  let catCount = 0;
   const statusBarItem = api.statusBar.createItem({
     id: 'cat-status',
     text: '🐱 Cat Mode',
-    tooltip: 'Cat Replacer Plugin is active',
+    tooltip: 'Cat Replacer Plugin is active (Ctrl+Shift+M to activate)',
     color: '#ffcc00',
     alignment: 'right',
     priority: 100,
   });
   disposables.push(statusBarItem);
 
-  // Update the status bar periodically with a random cat emoji
-  const catEmojis = ['🐱', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
-  const statusInterval = setInterval(() => {
-    catCount++;
-    const randomCat = catEmojis[catCount % catEmojis.length];
-    statusBarItem.update({
-      text: `${randomCat} Cat Mode (${catCount})`,
-    });
-  }, 5000);
-
-  // Clean up the interval on deactivate
-  disposables.push({ dispose: () => clearInterval(statusInterval) });
+  // Assign the flash function now that statusBarItem exists
+  flashStatus = (message: string, duration: number = 3000) => {
+    statusBarItem.update({ text: message, color: '#00ff00' });
+    setTimeout(() => {
+      statusBarItem.update({
+        text: catModeEnabled ? '😻 CATS!' : '🐱 Cat Mode',
+        color: catModeEnabled ? '#00ff00' : '#ffcc00'
+      });
+    }, duration);
+  };
 
   // Register file decoration provider - mark .cat files with a cat badge
   const decorationDisposable = api.fileDecorations.registerProvider({
@@ -190,7 +190,6 @@ export async function activate(api: PluginAPI): Promise<void> {
   disposables.push(keybindingDisposable);
 
   api.log.info('Cat Image Replacer plugin activated! All features registered.');
-  api.notifications.showInfo('🐱 Cat Replacer loaded! Check status bar, type "meow" in terminal, or "console." in editor.');
 }
 
 /**
