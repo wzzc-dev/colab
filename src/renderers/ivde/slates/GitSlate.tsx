@@ -1093,7 +1093,8 @@ export const GitSlate = ({ node }: { node?: CachedFileType }) => {
   // Stage specific lines from a file using Monaco data
   const stageLines = async (filePath: string, startLine: number, endLine: number, lineChange?: any, originalText?: string, modifiedText?: string) => {
     try {
-      if (lineChange && originalText && modifiedText) {
+      // Check for undefined/null, not truthiness - empty string is valid for new files
+      if (lineChange && originalText !== undefined && modifiedText !== undefined) {
         // Use the new Monaco-based staging approach
         const result = await electrobun.rpc?.request.gitStageMonacoChange({
           repoRoot: repoRootPath,
@@ -1134,7 +1135,8 @@ export const GitSlate = ({ node }: { node?: CachedFileType }) => {
   // Unstage specific lines from a file using Monaco data
   const unstageLines = async (filePath: string, startLine: number, endLine: number, lineChange?: any, originalText?: string, stagedText?: string) => {
     try {
-      if (lineChange && originalText && stagedText) {
+      // Check for undefined/null, not truthiness - empty string is valid for new files
+      if (lineChange && originalText !== undefined && stagedText !== undefined) {
         // Use the new Monaco-based unstaging approach
         const result = await  electrobun.rpc?.request.gitUnstageMonacoChange({
           repoRoot: repoRootPath,
