@@ -131,6 +131,8 @@ export const schema7 = schema({
           name: string(defaultOpts),
           emailVerified: boolean(defaultOpts),
           connectedAt: number(defaultOpts),
+          // Encryption passphrase for settings sync (stored locally only)
+          syncPassphrase: string(defaultOpts),
         },
         defaultOpts
       ),
