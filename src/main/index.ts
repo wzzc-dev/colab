@@ -322,7 +322,7 @@ const builtInShortcuts: Array<{
   { accelerator: "w", key: "w", ctrl: false, shift: false, alt: false, meta: true },
   // Cmd+Shift+W - close window
   { accelerator: "shift+w", key: "w", ctrl: false, shift: true, alt: false, meta: true },
-  // Ctrl+Tab - next tab
+  // Ctrl+Tab - next tab (won't work when webview focused, but standard shortcut)
   { accelerator: "ctrl+tab", key: "Tab", ctrl: true, shift: false, alt: false, meta: false },
   // Ctrl+Shift+Tab - previous tab
   { accelerator: "ctrl+shift+tab", key: "Tab", ctrl: true, shift: true, alt: false, meta: false },

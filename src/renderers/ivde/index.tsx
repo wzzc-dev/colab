@@ -266,7 +266,8 @@ document.addEventListener(
 			console.log("refresh current tab");
 			// Removed Cmd+T shortcut - no longer creating node-less web tabs
 		} else if (e.key === "Tab" && e.ctrlKey === true && e.shiftKey === true) {
-			// cycle to previous tab in pane
+			// cycle to previous tab in pane (Ctrl+Shift+Tab)
+			e.preventDefault();
 			setState(
 				produce((_state: AppState) => {
 					const win = getWindow(_state);
@@ -282,13 +283,14 @@ document.addEventListener(
 						currentPane.currentTabId,
 					);
 					const nextTabIndex =
-						(currentTabIndex - 1) % currentPane.tabIds.length;
+						(currentTabIndex - 1 + currentPane.tabIds.length) % currentPane.tabIds.length;
 					const nextTabId = currentPane.tabIds[nextTabIndex];
 					currentPane.currentTabId = nextTabId;
 				}),
 			);
 		} else if (e.key === "Tab" && e.ctrlKey === true) {
-			// cycle to next tab in pane
+			// cycle to next tab in pane (Ctrl+Tab)
+			e.preventDefault();
 			setState(
 				produce((_state: AppState) => {
 					const win = getWindow(_state);
