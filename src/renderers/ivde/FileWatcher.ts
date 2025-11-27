@@ -131,8 +131,9 @@ export const createModel = async (absolutePath: string) => {
     contents = fileContents?.textContent || "";
   }
 
+  const filename = absolutePath.split("/").pop() || "";
   const extension = absolutePath.split(".").pop() || "";
-  const language = getExtensionLanguage(extension);
+  const language = getLanguageForFile(filename, extension);
   // it knows about. In fact it does this when you open a typescript file, but also as you type in the editor
   // if you add a new type import. It's funny that id does this because you _also_ have to externally
   // addExtraLib or create a model for those files for type hinting to work.
@@ -160,22 +161,102 @@ export const createModel = async (absolutePath: string) => {
   return model;
 };
 
-const extensionsToLanguages: {} = {
+const extensionsToLanguages: Record<string, string> = {
+  // JavaScript/TypeScript
   ts: "typescript",
   tsx: "typescript",
   js: "javascript",
+  jsx: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+
+  // Web
   html: "html",
-  md: "markdown",
+  htm: "html",
   css: "css",
+  scss: "scss",
+  less: "less",
+
+  // Data/Config
   json: "json",
+  jsonc: "json",
+  yaml: "yaml",
+  yml: "yaml",
+  toml: "ini", // Monaco doesn't have toml, ini is close
+  ini: "ini",
+  xml: "xml",
+  svg: "xml",
+
+  // Documentation
+  md: "markdown",
+  mdx: "mdx",
+
+  // Shell
+  sh: "shell",
+  bash: "shell",
+  zsh: "shell",
+  fish: "shell",
+
+  // Other languages
+  py: "python",
+  rb: "ruby",
+  go: "go",
+  rs: "rust",
+  java: "java",
+  kt: "kotlin",
+  swift: "swift",
+  c: "cpp",
+  cpp: "cpp",
+  h: "cpp",
+  hpp: "cpp",
+  cs: "csharp",
+  php: "php",
+  r: "r",
+  lua: "lua",
+  pl: "perl",
+  scala: "scala",
+  zig: "rust", // No zig support, rust is somewhat similar
+
+  // DevOps/Config
+  dockerfile: "dockerfile",
+  sql: "sql",
+  graphql: "graphql",
+  gql: "graphql",
+  proto: "protobuf",
+
+  // Other
+  lock: "json", // bun.lock, package-lock.json
 };
 
-const getExtensionLanguage = (extension: string) => {
-  if (extension in extensionsToLanguages) {
-    return extensionsToLanguages[
-      extension as keyof typeof extensionsToLanguages
-    ];
-  } else {
-    return "plaintext";
+// Special filenames that should use specific languages
+const filenameToLanguage: Record<string, string> = {
+  "Dockerfile": "dockerfile",
+  "Makefile": "shell",
+  "Gemfile": "ruby",
+  "Rakefile": "ruby",
+  ".gitignore": "ini",
+  ".dockerignore": "ini",
+  ".env": "ini",
+  ".env.local": "ini",
+  ".env.development": "ini",
+  ".env.production": "ini",
+  ".prettierrc": "json",
+  ".eslintrc": "json",
+  "tsconfig.json": "json",
+  "package.json": "json",
+  "bun.lockb": "json",
+};
+
+const getLanguageForFile = (filename: string, extension: string): string => {
+  // Check special filenames first
+  if (filename in filenameToLanguage) {
+    return filenameToLanguage[filename];
   }
+
+  // Then check extension
+  if (extension in extensionsToLanguages) {
+    return extensionsToLanguages[extension];
+  }
+
+  return "plaintext";
 };
