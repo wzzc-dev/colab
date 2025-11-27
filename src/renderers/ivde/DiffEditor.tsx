@@ -552,24 +552,10 @@ export const DiffEditor = ({
       const oldOriginal = originalModel.getValue();
       const oldModified = modifiedModel.getValue();
 
-      const originalChanged = newOriginal !== oldOriginal;
-      const modifiedChanged = newModified !== oldModified;
-
-      console.log('[DiffEditor] Content check:', {
-        originalChanged,
-        modifiedChanged,
-        oldOriginalLen: oldOriginal.length,
-        newOriginalLen: newOriginal.length,
-        oldModifiedLen: oldModified.length,
-        newModifiedLen: newModified.length,
-      });
-
-      if (!originalChanged && !modifiedChanged) {
-        console.log('[DiffEditor] Skipping re-render - contents unchanged');
+      if (newOriginal === oldOriginal && newModified === oldModified) {
         return;
       }
 
-      console.log('[DiffEditor] Re-rendering diff');
       editor.revealLine(1);
       originalModel.setValue(newOriginal);
       modifiedModel.setValue(newModified);

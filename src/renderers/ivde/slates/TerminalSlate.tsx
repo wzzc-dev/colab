@@ -21,20 +21,15 @@ export const TerminalSlate = ({ tabId }: { tabId: string }) => {
   const updateCurrentDir = async () => {
     const id = terminalId();
     if (!id) {
-      console.log('No terminal ID available');
       return;
     }
-    
-    console.log('Updating current directory for terminal:', id);
-    
+
     try {
       const cwd = await electrobun.rpc?.request.getTerminalCwd({ terminalId: id });
-      console.log('Got cwd from terminal:', cwd, 'current:', currentDir());
-      
+
       if (cwd && cwd !== currentDir()) {
-        console.log('Updating current directory to:', cwd);
         setCurrentDir(cwd);
-        
+
         // Update the tab title with the new directory
         setState(
           produce((_state) => {
@@ -42,7 +37,6 @@ export const TerminalSlate = ({ tabId }: { tabId: string }) => {
             if (win && win.tabs[tabId]) {
               // Store the current directory in the tab for the title
               (win.tabs[tabId] as any).currentDir = cwd;
-              console.log('Updated tab currentDir to:', cwd);
             }
           })
         );

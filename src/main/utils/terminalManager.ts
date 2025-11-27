@@ -258,7 +258,6 @@ class TerminalManager {
         if (response.data) {
           // Update the stored current working directory
           terminal.currentCwd = response.data;
-          console.log(`Terminal ${terminalId} CWD updated to: ${response.data}`);
         }
         break;
 
@@ -444,22 +443,19 @@ class TerminalManager {
   }
 
   async getTerminalCwd(terminalId: string): Promise<string | null> {
-    console.log(`Getting CWD for terminal ${terminalId}`);
     const terminal = this.terminals.get(terminalId);
     if (!terminal) {
-      console.error(`Terminal ${terminalId} not found`);
       return null;
     }
 
     // Send a get_cwd message to the PTY binary to get the current directory
     try {
       this.sendPtyMessage(terminalId, { type: 'get_cwd' });
-      
+
       // Wait a bit for the response
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Return the current tracked CWD
-      console.log(`Returning cwd for terminal ${terminalId}: ${terminal.currentCwd}`);
       return terminal.currentCwd || terminal.cwd;
     } catch (error) {
       console.error(`Error getting CWD for terminal ${terminalId}:`, error);
