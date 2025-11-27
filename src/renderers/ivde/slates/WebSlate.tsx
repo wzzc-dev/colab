@@ -796,11 +796,20 @@ console.log('Preload script loaded for:', window.location.href);
           webviewRef.on("did-navigate", async (e: DidNavigateEvent) => {
             console.log("did-navigate event:", e.detail);
 
+            // Ignore DevTools and other internal URLs - don't persist these
+            const url = e.detail;
+            if (!url ||
+                !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://') ||
+                url.toLowerCase().includes('devtools')) {
+              console.log("Ignoring non-web URL:", url);
+              return;
+            }
+
             // Update URL immediately
             setState(
               produce((_state: AppState) => {
                 const _tab = getWindow(_state)?.tabs[tabId] as WebTabType;
-                _tab.url = e.detail;
+                _tab.url = url;
 
                 // Only set a temporary hostname-based title if:
                 // 1. There's no existing title, OR
@@ -861,10 +870,18 @@ console.log('Preload script loaded for:', window.location.href);
               return;
             }
 
+            // Ignore DevTools and other internal URLs
+            const url = e.detail;
+            if (!url ||
+                !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://') ||
+                url.toLowerCase().includes('devtools')) {
+              return;
+            }
+
             setState(
               produce((_state: AppState) => {
                 const _tab = getWindow(_state)?.tabs[tabId] as WebTabType;
-                _tab.url = e.detail;
+                _tab.url = url;
                 // Get the title after in-page navigation
                 const pageTitle = webviewRef?.getTitle();
                 if (pageTitle && typeof pageTitle === 'string' && !isCorruptedTitle(pageTitle)) {
