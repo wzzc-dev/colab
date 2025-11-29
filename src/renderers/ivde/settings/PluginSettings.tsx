@@ -1,11 +1,15 @@
 import {
   type JSXElement,
+  type Component,
   createSignal,
   onMount,
+  onCleanup,
   For,
   Show,
   Switch,
   Match,
+  lazy,
+  Suspense,
 } from "solid-js";
 import { state, setState } from "../store";
 import {
@@ -15,22 +19,154 @@ import {
 } from "./forms";
 import { electrobun } from "../init";
 
+// Props for custom settings components
+export interface CustomSettingsComponentProps {
+  pluginName: string;
+  sendMessage: (message: unknown) => Promise<void>;
+  onMessage: (callback: (message: unknown) => void) => void;
+  getState: <T = unknown>(key: string) => Promise<T | undefined>;
+  setState: <T = unknown>(key: string, value: T) => Promise<void>;
+}
+
+import { getSettingsComponent } from "../slates/pluginSlateRegistry";
+
+// Load a custom settings component from the plugin registry
+async function loadCustomComponent(name: string): Promise<Component<CustomSettingsComponentProps> | null> {
+  const component = getSettingsComponent(name);
+  if (!component) {
+    console.warn(`Unknown custom settings component: ${name}`);
+    return null;
+  }
+  return component as Component<CustomSettingsComponentProps>;
+}
+
+// Wrapper component that handles lazy loading of custom settings components
+const CustomSettingsLoader = (props: { componentName: string; pluginName: string }): JSXElement => {
+  const [CustomComponent, setCustomComponent] = createSignal<Component<CustomSettingsComponentProps> | null>(null);
+  const [loadError, setLoadError] = createSignal<string | null>(null);
+  const [loadingComponent, setLoadingComponent] = createSignal(true);
+
+  onMount(async () => {
+    try {
+      const component = await loadCustomComponent(props.componentName);
+      if (component) {
+        setCustomComponent(() => component);
+      } else {
+        setLoadError(`Component "${props.componentName}" not found`);
+      }
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load component');
+    } finally {
+      setLoadingComponent(false);
+    }
+  });
+
+  // Create messaging helpers for the custom component
+  const sendMessage = async (message: unknown) => {
+    console.log('[PluginSettings] sendMessage called:', props.pluginName, message);
+    try {
+      await electrobun.rpc?.request.pluginSendSettingsMessage({ pluginName: props.pluginName, message });
+      console.log('[PluginSettings] sendMessage completed');
+    } catch (e) {
+      console.error('[PluginSettings] sendMessage error:', e);
+    }
+  };
+
+  // Message listeners - polling for now
+  const messageListeners: ((message: unknown) => void)[] = [];
+  const onMessage = (callback: (message: unknown) => void) => {
+    messageListeners.push(callback);
+  };
+
+  // Poll for messages
+  let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+  onMount(() => {
+    const pollMessages = async () => {
+      try {
+        const messages = await electrobun.rpc?.request.pluginGetPendingSettingsMessages({ pluginName: props.pluginName });
+        if (messages && messages.length > 0) {
+          for (const msg of messages) {
+            for (const listener of messageListeners) {
+              try {
+                listener(msg);
+              } catch (e) {
+                console.error('Error in message listener:', e);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to poll messages:', e);
+      }
+    };
+
+    pollInterval = setInterval(pollMessages, 200);
+  });
+
+  onCleanup(() => {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+    }
+  });
+
+  // State helpers
+  const getStateValue = async <T = unknown,>(key: string): Promise<T | undefined> => {
+    return await electrobun.rpc?.request.pluginGetStateValue({ pluginName: props.pluginName, key }) as T | undefined;
+  };
+
+  const setStateValue = async <T = unknown,>(key: string, value: T): Promise<void> => {
+    await electrobun.rpc?.request.pluginSetStateValue({ pluginName: props.pluginName, key, value });
+  };
+
+  return (
+    <div style="margin-top: 16px; border-top: 1px solid #333; padding-top: 16px;">
+      <Show when={loadingComponent()}>
+        <div style="padding: 16px; text-align: center; color: #888; font-size: 12px;">
+          Loading...
+        </div>
+      </Show>
+      <Show when={loadError()}>
+        <div style="padding: 16px; color: #ff6b6b; font-size: 12px;">
+          Failed to load settings component: {loadError()}
+        </div>
+      </Show>
+      <Show when={!loadingComponent() && !loadError() && CustomComponent()}>
+        {(() => {
+          const Comp = CustomComponent()!;
+          return (
+            <Comp
+              pluginName={props.pluginName}
+              sendMessage={sendMessage}
+              onMessage={onMessage}
+              getState={getStateValue}
+              setState={setStateValue}
+            />
+          );
+        })()}
+      </Show>
+    </div>
+  );
+};
+
 interface SettingField {
   key: string;
   label: string;
-  type: 'string' | 'number' | 'boolean' | 'select' | 'color';
+  type: 'string' | 'number' | 'boolean' | 'select' | 'color' | 'secret';
   default?: string | number | boolean;
   description?: string;
   options?: Array<{ label: string; value: string | number }>;
   min?: number;
   max?: number;
   step?: number;
+  placeholder?: string;
 }
 
 interface SettingsSchema {
   title?: string;
   description?: string;
   fields: SettingField[];
+  customSettingsComponent?: string;
 }
 
 interface EntitlementSummary {
@@ -41,12 +177,18 @@ interface EntitlementSummary {
   description: string;
 }
 
+interface ValidationStatus {
+  state: 'idle' | 'validating' | 'valid' | 'invalid';
+  message?: string;
+}
+
 export const PluginSettings = (): JSXElement => {
   const [schema, setSchema] = createSignal<SettingsSchema | null>(null);
   const [values, setValues] = createSignal<Record<string, string | number | boolean>>({});
   const [entitlements, setEntitlements] = createSignal<EntitlementSummary[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [pluginDisplayName, setPluginDisplayName] = createSignal<string>("");
+  const [validationStatuses, setValidationStatuses] = createSignal<Record<string, ValidationStatus>>({});
 
   // Get the plugin name from settingsPane data
   const getPluginName = () => {
@@ -62,10 +204,11 @@ export const PluginSettings = (): JSXElement => {
     }
 
     try {
-      const [schemaResult, valuesResult, entitlementsResult] = await Promise.all([
+      const [schemaResult, valuesResult, entitlementsResult, validationResult] = await Promise.all([
         electrobun.rpc?.request.pluginGetSettingsSchema({ pluginName }),
         electrobun.rpc?.request.pluginGetSettingsValues({ pluginName }),
         electrobun.rpc?.request.pluginGetEntitlements({ pluginName }),
+        electrobun.rpc?.request.pluginGetSettingValidationStatuses({ pluginName }),
       ]);
 
       if (schemaResult) {
@@ -78,6 +221,9 @@ export const PluginSettings = (): JSXElement => {
       if (entitlementsResult) {
         setEntitlements(entitlementsResult);
       }
+      if (validationResult) {
+        setValidationStatuses(validationResult);
+      }
     } catch (error) {
       console.error("Failed to load plugin settings:", error);
     } finally {
@@ -85,22 +231,81 @@ export const PluginSettings = (): JSXElement => {
     }
   };
 
+  // Poll for validation status updates after changing a secret field
+  const pollValidationStatus = async (key: string) => {
+    const pluginName = getPluginName();
+    if (!pluginName) return;
+
+    // Poll every 200ms for up to 10 seconds
+    const maxAttempts = 50;
+    let attempts = 0;
+
+    const poll = async () => {
+      if (attempts >= maxAttempts) return;
+      attempts++;
+
+      try {
+        const statuses = await electrobun.rpc?.request.pluginGetSettingValidationStatuses({ pluginName });
+        if (statuses && statuses[key]) {
+          setValidationStatuses(prev => ({ ...prev, [key]: statuses[key] }));
+
+          // Stop polling if we have a final state
+          if (statuses[key].state === 'valid' || statuses[key].state === 'invalid') {
+            return;
+          }
+        }
+        // Continue polling
+        setTimeout(poll, 200);
+      } catch (error) {
+        console.error("Failed to poll validation status:", error);
+      }
+    };
+
+    // Start polling after a short delay to let the plugin process
+    setTimeout(poll, 100);
+  };
+
   onMount(() => {
     loadSettings();
   });
 
-  const handleValueChange = async (key: string, value: string | number | boolean) => {
+  const handleValueChange = async (key: string, value: string | number | boolean, isSecret = false) => {
     const pluginName = getPluginName();
     if (!pluginName) return;
 
     // Update local state immediately
     setValues(prev => ({ ...prev, [key]: value }));
 
+    // For secret fields, show validating state immediately
+    if (isSecret && typeof value === 'string' && value.trim()) {
+      setValidationStatuses(prev => ({
+        ...prev,
+        [key]: { state: 'validating', message: 'Validating...' }
+      }));
+    } else if (isSecret && typeof value === 'string' && !value.trim()) {
+      // Clear validation status if value is empty
+      setValidationStatuses(prev => ({
+        ...prev,
+        [key]: { state: 'idle' }
+      }));
+    }
+
     // Persist to backend
     try {
       await electrobun.rpc?.request.pluginSetSettingValue({ pluginName, key, value });
+
+      // For secret fields, start polling for validation status
+      if (isSecret && typeof value === 'string' && value.trim()) {
+        pollValidationStatus(key);
+      }
     } catch (error) {
       console.error("Failed to save setting:", error);
+      if (isSecret) {
+        setValidationStatuses(prev => ({
+          ...prev,
+          [key]: { state: 'invalid', message: 'Failed to save' }
+        }));
+      }
     }
   };
 
@@ -193,6 +398,76 @@ export const PluginSettings = (): JSXElement => {
                         </Show>
                       </Match>
 
+                      <Match when={field.type === 'secret'}>
+                        <div style="position: relative;">
+                          <input
+                            type="password"
+                            value={getValue(field) as string}
+                            placeholder={field.placeholder || '••••••••••••••••'}
+                            onInput={(e) => handleValueChange(field.key, e.currentTarget.value, true)}
+                            style={{
+                              background: '#2b2b2b',
+                              'border-radius': '4px',
+                              border: validationStatuses()[field.key]?.state === 'valid' ? '1px solid #51cf66' :
+                                      validationStatuses()[field.key]?.state === 'invalid' ? '1px solid #ff6b6b' :
+                                      validationStatuses()[field.key]?.state === 'validating' ? '1px solid #ff9800' : '1px solid #212121',
+                              color: '#d9d9d9',
+                              outline: 'none',
+                              cursor: 'text',
+                              display: 'block',
+                              'font-family': "'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
+                              'font-size': '12px',
+                              'padding-top': '8px',
+                              'padding-right': '36px',
+                              'padding-bottom': '8px',
+                              'padding-left': '9px',
+                              'line-height': '14px',
+                              width: '100%',
+                              'box-sizing': 'border-box',
+                            }}
+                          />
+                          {/* Validation status indicator */}
+                          <Show when={validationStatuses()[field.key]?.state && validationStatuses()[field.key]?.state !== 'idle'}>
+                            <div style={{
+                              position: 'absolute',
+                              right: '10px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              display: 'flex',
+                              'align-items': 'center',
+                              gap: '4px',
+                            }}>
+                              <Show when={validationStatuses()[field.key]?.state === 'validating'}>
+                                <span style="color: #ff9800; font-size: 14px;">⏳</span>
+                              </Show>
+                              <Show when={validationStatuses()[field.key]?.state === 'valid'}>
+                                <span style="color: #51cf66; font-size: 14px;">✓</span>
+                              </Show>
+                              <Show when={validationStatuses()[field.key]?.state === 'invalid'}>
+                                <span style="color: #ff6b6b; font-size: 14px;">✗</span>
+                              </Show>
+                            </div>
+                          </Show>
+                        </div>
+                        {/* Validation message */}
+                        <Show when={validationStatuses()[field.key]?.message}>
+                          <div style={{
+                            'font-size': '11px',
+                            'margin-top': '4px',
+                            color: validationStatuses()[field.key]?.state === 'valid' ? '#51cf66' :
+                                   validationStatuses()[field.key]?.state === 'invalid' ? '#ff6b6b' :
+                                   validationStatuses()[field.key]?.state === 'validating' ? '#ff9800' : '#999',
+                          }}>
+                            {validationStatuses()[field.key]?.message}
+                          </div>
+                        </Show>
+                        <Show when={field.description && !validationStatuses()[field.key]?.message}>
+                          <div style="font-size: 11px; color: #999; margin-top: 4px;">
+                            {field.description}
+                          </div>
+                        </Show>
+                      </Match>
+
                       <Match when={field.type === 'number'}>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                           <div style="display: flex; align-items: center; gap: 12px;">
@@ -269,6 +544,14 @@ export const PluginSettings = (): JSXElement => {
                 )}
               </For>
             </SettingsPaneFormSection>
+          </Show>
+
+          {/* Custom Settings Component (lazy loaded) */}
+          <Show when={!loading() && schema()?.customSettingsComponent}>
+            <CustomSettingsLoader
+              componentName={schema()!.customSettingsComponent!}
+              pluginName={getPluginName()}
+            />
           </Show>
 
           {/* Entitlements Section */}

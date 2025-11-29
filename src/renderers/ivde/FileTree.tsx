@@ -1187,6 +1187,14 @@ const NodeName = ({
           },
 
           {
+            label: "Open as Text",
+            hidden: !(_nodeToRender.type === "file" && Boolean(getSlateForNode(_nodeToRender))),
+            ...createContextMenuAction("open_as_text", {
+              nodePath: _nodeToRender.path,
+            }),
+          },
+
+          {
             label: "Copy Path to Clipboard",
             ...createContextMenuAction("copy_path_to_clipboard", {
               nodePath: _nodeToRender.path,
@@ -1397,51 +1405,6 @@ const NodeName = ({
       getSlateForNode(nodeToRender()) &&
       getSlateForNode(nodeToRender())?.type !== "project"
     );
-  };
-
-  const [devlinkSyncing, setDevlinkSyncing] = createSignal(false);
-  const syncDevlink = async () => {
-    // todo (yoav): this is really just a package.json script
-    // can move this code and re-use it for any package.json script
-    console.log("sync devlink", nodeToRender());
-
-    const _node = nodeToRender();
-    let nodePath = "";
-    if (await electrobun.rpc?.request.isFolder({ path: _node.path })) {
-      nodePath = _node.path;
-    } else {
-      nodePath = dirname(_node.path);
-    }
-
-    if (!nodePath) {
-      return;
-    }
-
-    // todo: wire up devlinkSyncing status after implemnting Terminals
-    // for now just disable it for a bit to prevent double clicks
-    setDevlinkSyncing(true);
-    setTimeout(() => {
-      setDevlinkSyncing(false);
-    }, 30000);
-
-    setTimeout(async () => {
-      electrobun.rpc?.send.syncDevlink({
-        nodePath,
-      });
-    }, 500);
-
-    // todo (yoav): integrate with terminal somehow in the future
-    // openNewTab(
-    //   {
-    //     type: "terminal",
-    //     // @ts-ignore - fix types later
-    //     cwd,
-    //     // todo (yoav): maybe add a customizable title for tabs
-    //     cmd,
-    //     args,
-    //   },
-    //   false
-    // );
   };
 
   return (
@@ -1783,26 +1746,6 @@ const NodeName = ({
 
         <Show when={!readonly}>
           <div style="position: absolute; display: flex; top: 0px; right: 0px; left: 0px; height: 23px; align-items: center; justify-content: right;">
-            <Show
-              when={nodeToRender().name === ".webflowrc.json" && isHovered()}
-            >
-              <Switch>
-                <Match when={devlinkSyncing()}>
-                  <FileTreeItemControlButton
-                    title="sync devlink"
-                    label="🥹"
-                    onClick={() => {}}
-                  />
-                </Match>
-                <Match when={!devlinkSyncing()}>
-                  <FileTreeItemControlButton
-                    title="sync devlink"
-                    label="↻"
-                    onClick={syncDevlink}
-                  />
-                </Match>
-              </Switch>
-            </Show>
             <Show when={isHovered()}>
               <FileTreeItemControlButton
                 label="..."

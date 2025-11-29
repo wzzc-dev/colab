@@ -43,33 +43,6 @@ export type WorkspaceRPC = {
         };
         response: any;
       };
-      getSiteIdForSlug: {
-        params: {
-          accessToken: string;
-          slug: string;
-        };
-        response?: string;
-      };
-      canAccessSiteWithSlug: {
-        params: {
-          accessToken: string;
-          slug: string;
-        };
-        response: boolean;
-      };
-      canAccessSite: {
-        params: {
-          accessToken: string;
-          siteId: string;
-        };
-        response: boolean;
-      };
-      getSitesForToken: {
-        params: {
-          accessToken: string;
-        };
-        response: any[];
-      };
       getFaviconForUrl: {
         params: {
           url: string;
@@ -952,11 +925,6 @@ export type WorkspaceRPC = {
       };
       fullyDeleteNodeFromDisk: {
         nodePath: string;
-      };
-      createDevlinkFiles: {
-        nodePath: string;
-        accessToken: string;
-        siteId: string;
       };
       syncDevlink: {
         nodePath: string;

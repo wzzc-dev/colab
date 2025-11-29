@@ -24,6 +24,9 @@ import {
 	getSlateForNode,
 	isDescendantPath,
 	writeSlateConfigFile,
+	findPluginSlateForFile,
+	loadPluginSlates,
+	type PluginSlateInfo,
 } from "./files";
 
 import { makeFileNameSafe } from "../../shared/utils/files";
@@ -67,7 +70,6 @@ import {
 	walkPanesForId,
 } from "./store";
 
-import { getAccessToken } from "./webflow-auth";
 
 import type {
 	CachedFileType,
@@ -77,7 +79,6 @@ import type {
 	PreviewFileTreeType,
 	ProjectType,
 	SlateType,
-	WebflowSitesResponseType,
 } from "../../shared/types/types";
 
 import {
@@ -113,6 +114,7 @@ import { join } from "../utils/pathUtils";
 import { Editor } from "./CodeEditor";
 import { AgentSlate } from "./slates/AgentSlate";
 import { GitSlate } from "./slates/GitSlate";
+import { PluginSlate } from "./slates/PluginSlate";
 // XXX - terminal slate
 import { TerminalSlate } from "./slates/TerminalSlate";
 import { WebSlate } from "./slates/WebSlate";
@@ -468,9 +470,6 @@ console.log("🟢 DEBUG: index.tsx module loaded and executing");
 
 createEffect(() => {
 	// clean up authUrl when settingsPane is closed
-	if (!state.settingsPane.type && state.webflowAuth.authUrl) {
-		setState("webflowAuth", { authUrl: null, resolver: null });
-	}
 	if (!state.settingsPane.type && state.githubAuth.authUrl) {
 		setState("githubAuth", { authUrl: null, resolver: null });
 	}
@@ -526,6 +525,11 @@ const getInitialState = () => {
 						? { ...state.appSettings, ...appSettings }
 						: state.appSettings,
 				});
+
+				// Load plugin slates after initial state is set
+				loadPluginSlates().catch((e) => {
+					console.error("[index] Failed to load plugin slates:", e);
+				});
 			},
 		)
 		.catch((err) => {
@@ -574,41 +578,13 @@ const App = () => {
 	//   }
 	// );
 
-	const authUrl = () => state.webflowAuth.authUrl || "";
 	const githubAuthUrl = () => state.githubAuth.authUrl || "";
 
 	// YYY - Electron.WebviewTag;
-	let authWebview: any; //
 	let githubAuthWebview: any; //
 
 	let shadowHost: HTMLDivElement | undefined;
 	let shadowRoot: ShadowRoot;
-
-	// YYY - DidNavigateEvent type
-	const authWebviewWillNavigate = async (e: any) => {
-		const { detail: url } = e;
-
-		// TODO: [blocking] this should be a global const somewhere
-		if (
-			url.startsWith("https://function-1-hzvvukamdq-uc.a.run.app/access-token")
-		) {
-			authWebview
-				.callAsyncJavaScript({
-					script: "return JSON.parse(document.body.textContent).access_token;",
-				})
-
-				.then((accessToken: string) => {
-					const resolver = state.webflowAuth.resolver;
-					if (resolver) {
-						resolver(accessToken);
-					}
-					setState("webflowAuth", { authUrl: null, resolver: null });
-				})
-				.catch((err) => {
-					console.error(err);
-				});
-		}
-	};
 
 	// GitHub auth webview navigation handler
 	const githubAuthWebviewWillNavigate = async (e: any) => {
@@ -725,25 +701,6 @@ const App = () => {
 							</div>
 						</Show>
 					</div>
-					{authUrl() && (
-						<electrobun-webview
-							// nodeintegration={false}
-							ref={(el) => {
-								// YYY - el was Electron.WebviewTag type
-								authWebview = el; // as Electron.WebviewTag;
-								el.addEventListener("did-navigate", authWebviewWillNavigate);
-							}}
-							partition={`persist:sites:${state.workspace.id}`}
-							style={{
-								background: "#fff",
-								position: "absolute",
-								inset: "0px",
-								left: "514px",
-								"z-index": 10,
-							}}
-							src={authUrl()}
-						/>
-					)}
 					{githubAuthUrl() && (
 						<electrobun-webview
 							// nodeintegration={false}
@@ -1804,10 +1761,27 @@ const TabContent = ({ tabId }: { tabId: string }) => {
 						// preload=""
 					/>
 				</Match>
-				<Match when={getNode(tab()?.path)?.type === "file"}>
+
+				{/* Force editor - bypass slate rendering when forceEditor is true */}
+				<Match when={(tab() as FileTabType)?.forceEditor && getNode(tab()?.path)?.type === "file"}>
 					<Editor currentTabId={(tab() as FileTabType)?.id} />
 				</Match>
 
+				{/* Plugin slates - check plugin-registered slates before built-in slates */}
+				<Match when={(() => {
+					const node = getNode(tab()?.path);
+					if (!node?.path) return null;
+					return findPluginSlateForFile(node.path);
+				})()}>
+					{(pluginSlate) => (
+						<PluginSlate
+							node={getNode(tab()?.path)}
+							slateInfo={pluginSlate() as PluginSlateInfo}
+						/>
+					)}
+				</Match>
+
+				{/* Slate-specific matches must come before generic file match */}
 				<Match when={getSlateForNode(getNode(tab()?.path))?.type === "web"}>
 					<WebSlate node={getNode(tab()?.path)} tabId={tabId} />
 				</Match>
@@ -1816,6 +1790,11 @@ const TabContent = ({ tabId }: { tabId: string }) => {
 				</Match>
 				<Match when={getSlateForNode(getNode(tab()?.path))?.type === "git"}>
 					<GitSlate node={getNode(tab()?.path)} />
+				</Match>
+
+				{/* Generic file editor - must come after slate-specific matches */}
+				<Match when={getNode(tab()?.path)?.type === "file"}>
+					<Editor currentTabId={(tab() as FileTabType)?.id} />
 				</Match>
 			</Switch>
 		</div>
@@ -2299,8 +2278,6 @@ const NodeSettings = () => {
 	let inputUrlRef: HTMLInputElement | undefined;
 	let browserProfileNameRef: HTMLInputElement | undefined;
 	let gitUrlRef: HTMLInputElement | undefined;
-	let devlinkTokenSelectRef: HTMLSelectElement | undefined;
-	let devlinkProjectSelectRef: HTMLSelectElement | undefined;
 
 	// Signal to track the current node type instead of DOM element
 	const [currentNodeType, setCurrentNodeType] = createSignal<string>("");
@@ -2484,12 +2461,6 @@ const NodeSettings = () => {
 			if (gitUrlRef && previewSlate.config?.gitUrl) {
 				gitUrlRef.value = previewSlate.config.gitUrl;
 			}
-		}
-	});
-
-	createRenderEffect(() => {
-		if (devlinkTokenSelectRef && state.tokens.length) {
-			onDevlinkTokenSelect();
 		}
 	});
 
@@ -2679,19 +2650,6 @@ const NodeSettings = () => {
 						path: absolutePath,
 					});
 				}
-			} else if (getSlateForNode(_previewNode)?.type === "devlink") {
-				const accessToken = devlinkTokenSelectRef?.value;
-				const siteId = devlinkProjectSelectRef?.value;
-
-				if (!accessToken || !siteId) {
-					return;
-				}
-
-				electrobun.rpc?.send.createDevlinkFiles({
-					nodePath: _previewNode.path,
-					accessToken,
-					siteId,
-				});
 			} else if (getSlateForNode(_previewNode)?.type === "repo") {
 				const repoSlate = getSlateForNode(_previewNode) as any;
 				const gitUrl = repoSlate?.config?.gitUrl;
@@ -3086,8 +3044,6 @@ const NodeSettings = () => {
 					},
 				],
 			});
-
-			onDevlinkTokenSelect();
 		} else {
 			if (nodeType === "file") {
 				const nodeName = await electrobun.rpc?.request.getUniqueNewName({
@@ -3218,37 +3174,6 @@ const NodeSettings = () => {
 		}
 		return `New ${previewNode()?.type === "file" ? "File" : "Folder"} Name`;
 	};
-
-	const onClickGenerateNewWebflowToken = () => {
-		getAccessToken();
-	};
-	const [tokenSites, setTokenSites] = createSignal<WebflowSitesResponseType>(
-		[],
-	);
-
-	const onDevlinkTokenSelect = () => {
-		if (!devlinkTokenSelectRef) {
-			return;
-		}
-
-		const tokenId = devlinkTokenSelectRef.value;
-		setPreviewNodeSlateToken(tokenId);
-
-		electrobun.rpc?.request
-			.getSitesForToken({ accessToken: tokenId })
-			.then(setTokenSites);
-	};
-
-	createEffect(() => {
-		if (state.tokens.length && devlinkTokenSelectRef) {
-			const tokenId = devlinkTokenSelectRef.value;
-			electrobun.rpc?.request
-				.getSitesForToken({ accessToken: tokenId })
-				.then(setTokenSites);
-		}
-	});
-
-	const onDevlinkProjectSelect = () => {};
 
 	onMount(() => {
 		inputNameRef?.focus();
@@ -3422,10 +3347,12 @@ const NodeSettings = () => {
 					: "Create folder",
 			);
 		}
+		const nodeType = previewNode()?.type;
+		const isFile = nodeType === "file";
 		setFolderInputLabel(
 			state.settingsPane.type === "add-node"
-				? "Create folder"
-				: "Rename folder",
+				? isFile ? "Create file" : "Create folder"
+				: isFile ? "Rename file" : "Rename folder",
 		);
 	});
 
@@ -3898,86 +3825,7 @@ const NodeSettings = () => {
 										</SettingsPaneFormSection>
 									</Show>
 
-									<Show
-										when={getSlateForNode(previewNode())?.type === "devlink"}
-									>
-										<SettingsPaneFormSection label="Webflow Project Access">
-											<div class="form-section-body" style="padding: 16px;">
-												<div class="field" style="margin-top: 0px;">
-													<div style="display: flex;flex-direction: column;">
-														<div
-															class="field-head"
-															style="display: flex;-webkit-box-align: end;-ms-flex-align: end;align-items: flex-end;-ms-flex-wrap: wrap;flex-wrap: wrap;margin-bottom: 8px;"
-														>
-															<div style="box-sizing: border-box;color: rgb(217, 217, 217);cursor: default;display: block;font-family: Inter, -apple-system, 'system-ui', 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;font-size: 12px;height: 16px;line-height: 16px;max-width: 100%;overflow-x: hidden;overflow-y: hidden;pointer-events: auto;text-overflow: ellipsis;text-size-adjust: 100%;user-select: text;white-space: nowrap;">
-																Webflow API Token
-															</div>
-														</div>
-														<select
-															style="background: #5e5e5e;color: #efefef;outline: none;padding: 6px;width: 100%;"
-															ref={devlinkTokenSelectRef}
-															onChange={onDevlinkTokenSelect}
-														>
-															<For
-																each={state.tokens.filter(
-																	(token) => token.name === "webflow",
-																)}
-															>
-																{(token) => (
-																	<option value={token.token}>
-																		{new Intl.DateTimeFormat("en-US", {
-																			year: "numeric",
-																			month: "long",
-																			day: "numeric",
-																			hour: "numeric",
-																			minute: "numeric",
-																			hour12: true,
-																		}).format(new Date(token.date_created))}
-																	</option>
-																)}
-															</For>
-														</select>
-														<div
-															onClick={onClickGenerateNewWebflowToken}
-															style="  margin-top:8px;  border-color: rgb(54, 54, 54);outline: 0px;cursor: pointer;-webkit-user-select: none;padding: 0px 12px;font-family: inherit;font-size: 12px;position: relative;display: flex;align-items: center;justify-content: center;height: 32px;border-radius: 2px;color: rgb(235, 235, 235);background: rgb(94, 94, 94);border-width: 1px;border-style: solid;box-sizing: border-box;"
-														>
-															<div style="font-size: 12px; position: absolute;">
-																Create New Token
-															</div>
-														</div>
-													</div>
-												</div>
-											</div>
-											<div class="form-section-body" style="padding: 16px;">
-												<div class="field" style="margin-top: 0px;">
-													<div style="display: flex;flex-direction: column;">
-														<div
-															class="field-head"
-															style="display: flex;-webkit-box-align: end;-ms-flex-align: end;align-items: flex-end;-ms-flex-wrap: wrap;flex-wrap: wrap;margin-bottom: 8px;"
-														>
-															<div style="box-sizing: border-box;color: rgb(217, 217, 217);cursor: default;display: block;font-family: Inter, -apple-system, 'system-ui', 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;font-size: 12px;height: 16px;line-height: 16px;max-width: 100%;overflow-x: hidden;overflow-y: hidden;pointer-events: auto;text-overflow: ellipsis;text-size-adjust: 100%;user-select: text;white-space: nowrap;">
-																Project
-															</div>
-														</div>
-														<select
-															style="    background: #5e5e5e;color: #efefef;outline: none;padding: 6px;width: 100%;"
-															ref={devlinkProjectSelectRef}
-															onChange={onDevlinkProjectSelect}
-														>
-															<For each={tokenSites()}>
-																{(site) => (
-																	<option value={site._id}>
-																		{site.name} ({site.shortName})
-																	</option>
-																)}
-															</For>
-														</select>
-													</div>
-												</div>
-											</div>
-										</SettingsPaneFormSection>
-									</Show>
-								</div>
+									</div>
 							</div>
 						</div>
 					</div>

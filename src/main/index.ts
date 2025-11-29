@@ -76,7 +76,6 @@ import {
 } from "./FileWatcher";
 import { track } from "./utils/analytics";
 import {
-  createDevlinkFiles,
   findAllInFolder,
   findFilesInFolder,
   findFirstNestedGitRepo,
@@ -132,12 +131,6 @@ import {
 import { terminalManager } from "./utils/terminalManager";
 // import { terminalManagerPty as terminalManager } from "./utils/terminalManagerPty";
 import { getFaviconForUrl } from "./utils/urlUtils";
-import {
-  canAccessSite,
-  canAccessSiteWithSlug,
-  getSiteIdForSlug,
-  getSitesForToken,
-} from "./utils/webflowUtils";
 import { pluginManager, searchPlugins, getPackageInfo } from "./plugins";
 
 const localInfo = await Updater.getLocallocalInfo();
@@ -691,6 +684,9 @@ Electrobun.events.on("context-menu-clicked", (e) => {
   } else if (action === "open_new_tab") {
     const { workspaceId, windowId, nodePath } = data;
     broadcastToWindow(workspaceId, windowId, "openNewTab", { nodePath });
+  } else if (action === "open_as_text") {
+    const { workspaceId, windowId, nodePath } = data;
+    broadcastToWindow(workspaceId, windowId, "openAsText", { nodePath });
   } else if (action === "show_node_settings") {
     const { workspaceId, windowId, nodePath } = data;
     broadcastToWindow(workspaceId, windowId, "showNodeSettings", { nodePath });
@@ -1104,19 +1100,6 @@ const createWindow = (workspaceId: string, window?: WindowConfigType, offset?: {
         },
         showContextMenu: ({ menuItems }) => {
           Electrobun.ContextMenu.showContextMenu(menuItems);
-        },
-        // we're not using this anywhere
-        // getSiteIdForSlug: ({ accessToken, slug }) => {
-        //   return getSiteIdForSlug(accessToken, slug);
-        // },
-        canAccessSiteWithSlug: ({ accessToken, slug }) => {
-          return canAccessSiteWithSlug(accessToken, slug);
-        },
-        canAccessSite: ({ accessToken, siteId }) => {
-          return canAccessSite(accessToken, siteId);
-        },
-        getSitesForToken: ({ accessToken }) => {
-          return getSitesForToken(accessToken);
         },
         getFaviconForUrl: ({ url }) => {
           console.log("get favicon request", url);
@@ -2258,6 +2241,98 @@ const createWindow = (workspaceId: string, window?: WindowConfigType, offset?: {
         pluginGetEntitlements: ({ pluginName }) => {
           return pluginManager.getPluginEntitlements(pluginName);
         },
+        pluginGetSettingValidationStatuses: ({ pluginName }) => {
+          return pluginManager.getPluginSettingValidationStatuses(pluginName);
+        },
+        // Plugin state (arbitrary data)
+        pluginGetState: ({ pluginName }) => {
+          return pluginManager.getPluginState(pluginName);
+        },
+        pluginGetStateValue: ({ pluginName, key }) => {
+          return pluginManager.getPluginStateValue(pluginName, key);
+        },
+        pluginSetStateValue: ({ pluginName, key, value }) => {
+          pluginManager.setPluginStateValue(pluginName, key, value);
+          return { ok: true };
+        },
+        // Settings messaging (for custom settings components)
+        pluginSendSettingsMessage: ({ pluginName, message }) => {
+          console.log('[Main] pluginSendSettingsMessage received:', pluginName, message);
+          pluginManager.sendSettingsMessage(pluginName, message);
+          return { ok: true };
+        },
+        pluginGetPendingSettingsMessages: ({ pluginName }) => {
+          return pluginManager.getAndClearPendingSettingsMessages(pluginName);
+        },
+        pluginGetAllSlates: () => {
+          return pluginManager.getAllSlates().map(s => ({
+            id: s.config.id,
+            pluginName: s.pluginName,
+            name: s.config.name,
+            description: s.config.description,
+            icon: s.config.icon,
+            patterns: s.config.patterns,
+            component: s.config.component,
+            folderHandler: s.config.folderHandler,
+          }));
+        },
+        pluginFindSlateForFile: ({ filePath }) => {
+          const slate = pluginManager.findSlateForFile(filePath);
+          if (!slate) return null;
+          return {
+            id: slate.config.id,
+            pluginName: slate.pluginName,
+            name: slate.config.name,
+            description: slate.config.description,
+            icon: slate.config.icon,
+            patterns: slate.config.patterns,
+            component: slate.config.component,
+            folderHandler: slate.config.folderHandler,
+          };
+        },
+        pluginFindSlateForFolder: ({ folderPath }) => {
+          const slate = pluginManager.findSlateForFolder(folderPath);
+          if (!slate) return null;
+          return {
+            id: slate.config.id,
+            pluginName: slate.pluginName,
+            name: slate.config.name,
+            description: slate.config.description,
+            icon: slate.config.icon,
+            patterns: slate.config.patterns,
+            component: slate.config.component,
+            folderHandler: slate.config.folderHandler,
+          };
+        },
+        // Slate instance lifecycle - mount/unmount/events
+        pluginMountSlate: async ({ slateId, filePath, windowId }) => {
+          // The render callback will be handled via messages
+          // We store pending renders and the renderer polls for them
+          const renders: Array<{ html?: string; script?: string }> = [];
+          const instanceId = await pluginManager.mountSlate(
+            slateId,
+            filePath,
+            (message) => {
+              renders.push({ html: message.html, script: message.script });
+            },
+            windowId
+          );
+          return { instanceId, initialRenders: renders };
+        },
+        pluginUnmountSlate: async ({ instanceId }) => {
+          await pluginManager.unmountSlate(instanceId);
+          return { ok: true };
+        },
+        pluginSlateEvent: async ({ instanceId, eventType, payload }) => {
+          await pluginManager.sendSlateEvent(instanceId, eventType, payload);
+          return { ok: true };
+        },
+        pluginGetSlateInstance: ({ instanceId }) => {
+          return pluginManager.getSlateInstance(instanceId) || null;
+        },
+        pluginGetPendingSlateRenders: ({ instanceId }) => {
+          return pluginManager.getAndClearPendingSlateRenders(instanceId);
+        },
       },
 
       messages: {
@@ -2390,9 +2465,6 @@ const createWindow = (workspaceId: string, window?: WindowConfigType, offset?: {
         fullyDeleteNodeFromDisk: ({ nodePath }) => {
           safeTrashFileOrFolder(nodePath);
         },
-        createDevlinkFiles: ({ nodePath, accessToken, siteId }) => {
-          createDevlinkFiles(nodePath, accessToken, siteId);
-        },
         syncDevlink: ({ nodePath }) => {
           syncDevlink(nodePath);
         },
@@ -2467,6 +2539,18 @@ const createWindow = (workspaceId: string, window?: WindowConfigType, offset?: {
       exitCode: message.exitCode,
       signal: message.signal,
     });
+  });
+
+  // Set up slate render message handler for plugin slates
+  pluginManager.setSlateWindowMessageHandler((targetWindowId, message) => {
+    if (targetWindowId === windowId && mainWindow.webview.rpc) {
+      const slateMessage = message as { type: string; instanceId: string; html?: string; script?: string };
+      mainWindow.webview.rpc.send('slateRender', {
+        instanceId: slateMessage.instanceId,
+        html: slateMessage.html,
+        script: slateMessage.script,
+      });
+    }
   });
 
   // ZZZ - leave-html-full-screen

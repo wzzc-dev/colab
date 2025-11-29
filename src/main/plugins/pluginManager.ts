@@ -22,6 +22,8 @@ import type {
   PluginSettingsValues,
   PluginEntitlements,
   EntitlementSummary,
+  SettingValidationStatus,
+  SettingValidationStatuses,
 } from './types';
 import { DEFAULT_PERMISSIONS, summarizeEntitlements } from './types';
 
@@ -77,9 +79,22 @@ import type {
   FileDecoration,
   ContextMenuItem,
   KeyboardShortcut,
+  SlateConfig,
+  RegisteredSlate,
 } from './types';
+import type {
+  SlateContext,
+  SlateMountMessage,
+  SlateUnmountMessage,
+  SlateRenderMessage,
+  SlateEventMessage,
+} from './types';
+
 type TerminalCommandHandler = (ctx: TerminalCommandContext) => void | Promise<void>;
 type ContextMenuHandler = (context: { filePath?: string; selection?: string }) => void | Promise<void>;
+type SlateMountHandler = (context: SlateContext) => void | Promise<void>;
+type SlateUnmountHandler = (instanceId: string) => void | Promise<void>;
+type SlateEventHandler = (instanceId: string, eventType: string, payload: unknown) => void | Promise<void>;
 
 // Completion provider registration
 interface RegisteredCompletionProvider {
@@ -137,10 +152,23 @@ class PluginManager {
   private settingsSchemas: Map<string, RegisteredSettingsSchema> = new Map(); // plugin name -> schema
   private settingsValues: Map<string, PluginSettingsValues> = new Map(); // plugin name -> values
   private settingsChangeCallbacks: Map<string, Set<SettingsChangeCallback>> = new Map(); // plugin name -> callbacks
+  private settingsValidationStatuses: Map<string, SettingValidationStatuses> = new Map(); // plugin name -> key -> validation status
+  private settingsMessageCallbacks: Map<string, Set<(message: unknown) => void>> = new Map(); // plugin name -> message callbacks
+  private pendingSettingsMessages: Map<string, unknown[]> = new Map(); // plugin name -> messages to send to renderer
+  private pluginState: Map<string, Record<string, unknown>> = new Map(); // plugin name -> arbitrary state
+  private slates: Map<string, RegisteredSlate> = new Map(); // slate id -> slate config
+  private slateMountHandlers: Map<string, SlateMountHandler> = new Map(); // slate id -> mount handler
+  private slateUnmountHandlers: Map<string, SlateUnmountHandler> = new Map(); // slate id -> unmount handler
+  private slateEventHandlers: Map<string, SlateEventHandler> = new Map(); // slate id -> event handler
+  private slateRenderCallbacks: Map<string, (message: SlateRenderMessage) => void> = new Map(); // instanceId -> render callback
+  private activeSlateInstances: Map<string, { slateId: string; pluginName: string; filePath: string; windowId?: string }> = new Map(); // instanceId -> info
+  private pendingSlateRenders: Map<string, SlateRenderMessage[]> = new Map(); // instanceId -> queued renders
+  private slateWindowMessageHandler: ((windowId: string, message: unknown) => void) | null = null;
 
   constructor() {
     this.registry = loadRegistry();
     this.loadAllPluginSettings();
+    this.loadAllPluginState();
   }
 
   // ==========================================================================
@@ -179,6 +207,45 @@ class PluginManager {
     for (const pluginName of Object.keys(this.registry.plugins)) {
       const values = this.loadPluginSettings(pluginName);
       this.settingsValues.set(pluginName, values);
+    }
+  }
+
+  // ==========================================================================
+  // State Persistence (arbitrary plugin data)
+  // ==========================================================================
+
+  private getStateFilePath(pluginName: string): string {
+    return join(COLAB_PLUGINS_PATH, `${pluginName.replace(/\//g, '__')}.state.json`);
+  }
+
+  private loadPluginState(pluginName: string): Record<string, unknown> {
+    const statePath = this.getStateFilePath(pluginName);
+    if (!existsSync(statePath)) {
+      return {};
+    }
+    try {
+      const data = readFileSync(statePath, 'utf-8');
+      return JSON.parse(data);
+    } catch (e) {
+      console.error(`Failed to load state for plugin ${pluginName}:`, e);
+      return {};
+    }
+  }
+
+  private savePluginState(pluginName: string): void {
+    const state = this.pluginState.get(pluginName) || {};
+    const statePath = this.getStateFilePath(pluginName);
+    try {
+      writeFileSync(statePath, JSON.stringify(state, null, 2));
+    } catch (e) {
+      console.error(`Failed to save state for plugin ${pluginName}:`, e);
+    }
+  }
+
+  private loadAllPluginState(): void {
+    for (const pluginName of Object.keys(this.registry.plugins)) {
+      const state = this.loadPluginState(pluginName);
+      this.pluginState.set(pluginName, state);
     }
   }
 
@@ -611,6 +678,74 @@ class PluginManager {
         },
       },
 
+      shell: {
+        async exec(
+          command: string,
+          options?: { cwd?: string; env?: Record<string, string>; timeout?: number }
+        ) {
+          const plugin = self.registry.plugins[pluginName];
+          const manifest = plugin?.manifest;
+          if (!manifest?.entitlements?.process?.spawn) {
+            console.error(`[Plugin:${pluginName}] shell.exec denied - no process.spawn entitlement. Manifest:`, manifest?.entitlements);
+            throw new Error('Permission denied: process.spawn entitlement required');
+          }
+
+          console.info(`[Plugin:${pluginName}] shell.exec: ${command}`);
+
+          const { exec } = await import('child_process');
+          const { promisify } = await import('util');
+          const execAsync = promisify(exec);
+
+          try {
+            const result = await execAsync(command, {
+              cwd: options?.cwd,
+              env: options?.env ? { ...process.env, ...options.env } : undefined,
+              timeout: options?.timeout || 60000,
+              maxBuffer: 10 * 1024 * 1024, // 10MB
+            });
+            console.info(`[Plugin:${pluginName}] shell.exec completed successfully`);
+            return {
+              stdout: result.stdout,
+              stderr: result.stderr,
+              exitCode: 0,
+            };
+          } catch (e: any) {
+            console.warn(`[Plugin:${pluginName}] shell.exec failed:`, e.message);
+            return {
+              stdout: e.stdout || '',
+              stderr: e.stderr || e.message,
+              exitCode: e.code || 1,
+            };
+          }
+        },
+        async openExternal(target: string) {
+          console.info(`[Plugin:${pluginName}] shell.openExternal: ${target}`);
+          // Use the system's open command to launch URLs or files
+          const { exec } = await import('child_process');
+          const platform = process.platform;
+
+          let command: string;
+          if (platform === 'darwin') {
+            command = `open "${target}"`;
+          } else if (platform === 'win32') {
+            command = `start "" "${target}"`;
+          } else {
+            command = `xdg-open "${target}"`;
+          }
+
+          return new Promise((resolve, reject) => {
+            exec(command, (error) => {
+              if (error) {
+                console.error(`[Plugin:${pluginName}] shell.openExternal failed:`, error);
+                reject(error);
+              } else {
+                resolve();
+              }
+            });
+          });
+        },
+      },
+
       notifications: {
         showInfo(message: string) {
           console.info(`[Plugin:${pluginName}] INFO: ${message}`);
@@ -810,6 +945,150 @@ class PluginManager {
             },
           };
         },
+        setValidationStatus(key: string, status: SettingValidationStatus) {
+          if (!self.settingsValidationStatuses.has(pluginName)) {
+            self.settingsValidationStatuses.set(pluginName, {});
+          }
+          self.settingsValidationStatuses.get(pluginName)![key] = status;
+        },
+        postMessage(message: unknown) {
+          // Queue message for renderer to pick up
+          if (!self.pendingSettingsMessages.has(pluginName)) {
+            self.pendingSettingsMessages.set(pluginName, []);
+          }
+          self.pendingSettingsMessages.get(pluginName)!.push(message);
+        },
+        onMessage(callback: (message: unknown) => void) {
+          if (!self.settingsMessageCallbacks.has(pluginName)) {
+            self.settingsMessageCallbacks.set(pluginName, new Set());
+          }
+          self.settingsMessageCallbacks.get(pluginName)!.add(callback);
+          return {
+            dispose() {
+              self.settingsMessageCallbacks.get(pluginName)?.delete(callback);
+            },
+          };
+        },
+      },
+
+      slates: {
+        register(config: SlateConfig) {
+          const fullId = `${pluginName}.${config.id}`;
+          self.slates.set(fullId, {
+            pluginName,
+            config: { ...config, id: fullId },
+          });
+          console.info(`[PluginManager] Plugin ${pluginName} registered slate: ${config.name} for patterns: ${config.patterns.join(', ')}`);
+
+          return {
+            dispose() {
+              self.slates.delete(fullId);
+              self.slateMountHandlers.delete(fullId);
+              self.slateUnmountHandlers.delete(fullId);
+              self.slateEventHandlers.delete(fullId);
+            },
+          };
+        },
+        /**
+         * Register a callback for when a slate instance should mount
+         * @param slateId - The slate ID (without plugin prefix)
+         * @param handler - Called when slate mounts, receives SlateContext
+         */
+        onMount(slateId: string, handler: SlateMountHandler) {
+          const fullId = `${pluginName}.${slateId}`;
+          self.slateMountHandlers.set(fullId, handler);
+          console.info(`[PluginManager] Plugin ${pluginName} registered mount handler for slate: ${slateId}`);
+          return {
+            dispose() {
+              self.slateMountHandlers.delete(fullId);
+            },
+          };
+        },
+        /**
+         * Register a callback for when a slate instance should unmount
+         * @param slateId - The slate ID (without plugin prefix)
+         * @param handler - Called when slate unmounts, receives instanceId
+         */
+        onUnmount(slateId: string, handler: SlateUnmountHandler) {
+          const fullId = `${pluginName}.${slateId}`;
+          self.slateUnmountHandlers.set(fullId, handler);
+          console.info(`[PluginManager] Plugin ${pluginName} registered unmount handler for slate: ${slateId}`);
+          return {
+            dispose() {
+              self.slateUnmountHandlers.delete(fullId);
+            },
+          };
+        },
+        /**
+         * Register a callback for events from slate UI
+         * @param slateId - The slate ID (without plugin prefix)
+         * @param handler - Called when events come from the UI
+         */
+        onEvent(slateId: string, handler: SlateEventHandler) {
+          const fullId = `${pluginName}.${slateId}`;
+          self.slateEventHandlers.set(fullId, handler);
+          return {
+            dispose() {
+              self.slateEventHandlers.delete(fullId);
+            },
+          };
+        },
+        /**
+         * Render HTML content into a slate instance
+         * @param instanceId - The slate instance ID
+         * @param html - HTML content to render
+         * @param script - Optional JavaScript to execute after render
+         */
+        render(instanceId: string, html: string, script?: string) {
+          const renderMessage: SlateRenderMessage = {
+            type: 'slateRender',
+            instanceId,
+            html,
+            script,
+          };
+
+          // First try direct callback (for initial mount)
+          const callback = self.slateRenderCallbacks.get(instanceId);
+          if (callback) {
+            callback(renderMessage);
+          }
+
+          // Also queue for polling and send to window if handler is set
+          if (!self.pendingSlateRenders.has(instanceId)) {
+            self.pendingSlateRenders.set(instanceId, []);
+          }
+          self.pendingSlateRenders.get(instanceId)!.push(renderMessage);
+
+          // If we have a window message handler and know the window, push the render
+          const instance = self.activeSlateInstances.get(instanceId);
+          if (instance?.windowId && self.slateWindowMessageHandler) {
+            self.slateWindowMessageHandler(instance.windowId, renderMessage);
+          }
+        },
+      },
+
+      state: {
+        get<T = unknown>(key: string): T | undefined {
+          const state = self.pluginState.get(pluginName) || {};
+          return state[key] as T | undefined;
+        },
+        set<T = unknown>(key: string, value: T) {
+          if (!self.pluginState.has(pluginName)) {
+            self.pluginState.set(pluginName, {});
+          }
+          self.pluginState.get(pluginName)![key] = value;
+          self.savePluginState(pluginName);
+        },
+        delete(key: string) {
+          const state = self.pluginState.get(pluginName);
+          if (state) {
+            delete state[key];
+            self.savePluginState(pluginName);
+          }
+        },
+        getAll(): Record<string, unknown> {
+          return { ...(self.pluginState.get(pluginName) || {}) };
+        },
       },
     } as PluginAPI;
   }
@@ -893,6 +1172,24 @@ class PluginManager {
     for (const [keybindingId, keybinding] of this.keybindings) {
       if (keybinding.pluginName === packageName) {
         this.keybindings.delete(keybindingId);
+      }
+    }
+
+    // Unregister slates and their handlers
+    for (const [slateId, slate] of this.slates) {
+      if (slate.pluginName === packageName) {
+        this.slates.delete(slateId);
+        this.slateMountHandlers.delete(slateId);
+        this.slateUnmountHandlers.delete(slateId);
+        this.slateEventHandlers.delete(slateId);
+      }
+    }
+
+    // Clean up active slate instances for this plugin
+    for (const [instanceId, info] of this.activeSlateInstances) {
+      if (info.pluginName === packageName) {
+        this.activeSlateInstances.delete(instanceId);
+        this.slateRenderCallbacks.delete(instanceId);
       }
     }
 
@@ -1081,6 +1378,70 @@ class PluginManager {
         // TODO: implement actual UI notifications
         // For now, just log to console
         return;
+
+      case 'shell': {
+        const manifest = this.loadedManifests.get(pluginName);
+        if (!manifest?.entitlements?.process?.spawn) {
+          throw new Error('Permission denied: process.spawn entitlement required');
+        }
+
+        if (action === 'exec') {
+          const execParams = params as {
+            command: string;
+            options?: { cwd?: string; env?: Record<string, string>; timeout?: number };
+          };
+          const { exec } = await import('child_process');
+          const { promisify } = await import('util');
+          const execAsync = promisify(exec);
+
+          try {
+            const result = await execAsync(execParams.command, {
+              cwd: execParams.options?.cwd,
+              env: execParams.options?.env ? { ...process.env, ...execParams.options.env } : undefined,
+              timeout: execParams.options?.timeout || 60000,
+              maxBuffer: 10 * 1024 * 1024,
+            });
+            return {
+              stdout: result.stdout,
+              stderr: result.stderr,
+              exitCode: 0,
+            };
+          } catch (e: any) {
+            return {
+              stdout: e.stdout || '',
+              stderr: e.stderr || e.message,
+              exitCode: e.code || 1,
+            };
+          }
+        }
+
+        if (action === 'openExternal') {
+          const { target } = params as { target: string };
+          const { exec } = await import('child_process');
+          const platform = process.platform;
+
+          let command: string;
+          if (platform === 'darwin') {
+            command = `open "${target}"`;
+          } else if (platform === 'win32') {
+            command = `start "" "${target}"`;
+          } else {
+            command = `xdg-open "${target}"`;
+          }
+
+          return new Promise((resolve, reject) => {
+            exec(command, (error) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(undefined);
+              }
+            });
+          });
+        }
+
+        throw new Error(`Unknown shell action: ${action}`);
+      }
 
       default:
         console.warn(`[PluginManager] Unknown API method: ${method}`);
@@ -1501,6 +1862,301 @@ class PluginManager {
    */
   hasPluginSettings(pluginName: string): boolean {
     return this.settingsSchemas.has(pluginName);
+  }
+
+  /**
+   * Get validation statuses for a plugin's settings
+   */
+  getPluginSettingValidationStatuses(pluginName: string): SettingValidationStatuses {
+    return { ...(this.settingsValidationStatuses.get(pluginName) || {}) };
+  }
+
+  // ==========================================================================
+  // Plugin State (arbitrary data)
+  // ==========================================================================
+
+  /**
+   * Get all state for a plugin
+   */
+  getPluginState(pluginName: string): Record<string, unknown> {
+    return { ...(this.pluginState.get(pluginName) || {}) };
+  }
+
+  /**
+   * Get a specific state value for a plugin
+   */
+  getPluginStateValue<T = unknown>(pluginName: string, key: string): T | undefined {
+    const state = this.pluginState.get(pluginName) || {};
+    return state[key] as T | undefined;
+  }
+
+  /**
+   * Set a state value for a plugin (from renderer)
+   */
+  setPluginStateValue(pluginName: string, key: string, value: unknown): void {
+    if (!this.pluginState.has(pluginName)) {
+      this.pluginState.set(pluginName, {});
+    }
+    this.pluginState.get(pluginName)![key] = value;
+    this.savePluginState(pluginName);
+  }
+
+  // ==========================================================================
+  // Settings Messaging (for custom settings components)
+  // ==========================================================================
+
+  /**
+   * Send a message from renderer to plugin
+   */
+  sendSettingsMessage(pluginName: string, message: unknown): void {
+    console.log(`[PluginManager] sendSettingsMessage for ${pluginName}:`, message);
+    const callbacks = this.settingsMessageCallbacks.get(pluginName);
+    console.log(`[PluginManager] Found ${callbacks?.size || 0} callbacks for ${pluginName}`);
+    if (callbacks) {
+      for (const callback of callbacks) {
+        try {
+          console.log(`[PluginManager] Calling callback for ${pluginName}`);
+          callback(message);
+        } catch (e) {
+          console.error(`[PluginManager] Error in settings message callback for ${pluginName}:`, e);
+        }
+      }
+    } else {
+      console.warn(`[PluginManager] No callbacks registered for ${pluginName}`);
+    }
+  }
+
+  /**
+   * Get pending messages from plugin to renderer (and clear them)
+   */
+  getAndClearPendingSettingsMessages(pluginName: string): unknown[] {
+    const messages = this.pendingSettingsMessages.get(pluginName) || [];
+    this.pendingSettingsMessages.set(pluginName, []);
+    return messages;
+  }
+
+  // ==========================================================================
+  // Custom Slates
+  // ==========================================================================
+
+  /**
+   * Get all registered slates
+   */
+  getAllSlates(): RegisteredSlate[] {
+    return Array.from(this.slates.values());
+  }
+
+  /**
+   * Find a slate that matches a file path
+   * @param filePath - The full path to the file
+   * @returns The matching slate config or null
+   */
+  findSlateForFile(filePath: string): RegisteredSlate | null {
+    const filename = filePath.split('/').pop() || '';
+
+    for (const [, slate] of this.slates) {
+      for (const pattern of slate.config.patterns) {
+        // Simple pattern matching:
+        // - Exact match: ".webflowrc.json" matches filename
+        // - Glob-like: "*.webflowrc.json" matches files ending with .webflowrc.json
+        // - Path-based: "**\/webflow.json" uses minimatch-style matching
+
+        if (pattern === filename) {
+          return slate;
+        }
+
+        // Handle simple wildcard patterns
+        if (pattern.startsWith('*.')) {
+          const suffix = pattern.slice(1); // e.g., ".webflowrc.json"
+          if (filename.endsWith(suffix)) {
+            return slate;
+          }
+        }
+
+        // Handle **/ prefix (matches any directory depth)
+        if (pattern.startsWith('**/')) {
+          const restPattern = pattern.slice(3);
+          if (filename === restPattern || filePath.endsWith('/' + restPattern)) {
+            return slate;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Find a slate that matches a folder path (for folder handlers)
+   * @param folderPath - The full path to the folder
+   * @returns The matching slate config or null
+   */
+  findSlateForFolder(folderPath: string): RegisteredSlate | null {
+    for (const [, slate] of this.slates) {
+      if (!slate.config.folderHandler) continue;
+
+      // For folder handlers, check if any of the patterns exist in the folder
+      const fs = require('fs');
+      for (const pattern of slate.config.patterns) {
+        const checkPath = require('path').join(folderPath, pattern.replace('**/', ''));
+        if (fs.existsSync(checkPath)) {
+          return slate;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Get a specific slate by ID
+   */
+  getSlateById(slateId: string): RegisteredSlate | undefined {
+    return this.slates.get(slateId);
+  }
+
+  // ==========================================================================
+  // Slate Instance Lifecycle (called from renderer)
+  // ==========================================================================
+
+  /**
+   * Set the window message handler for slate renders
+   * This should be called during window setup
+   */
+  setSlateWindowMessageHandler(handler: (windowId: string, message: unknown) => void): void {
+    this.slateWindowMessageHandler = handler;
+  }
+
+  /**
+   * Get pending slate renders for an instance (and clear them)
+   */
+  getAndClearPendingSlateRenders(instanceId: string): SlateRenderMessage[] {
+    const renders = this.pendingSlateRenders.get(instanceId) || [];
+    this.pendingSlateRenders.set(instanceId, []);
+    return renders;
+  }
+
+  /**
+   * Mount a slate instance - calls the plugin's onMount handler
+   * @param slateId - Full slate ID (e.g., "webflow-plugin.devlink")
+   * @param filePath - Path to the file/folder being viewed
+   * @param renderCallback - Callback to receive render updates from plugin
+   * @param windowId - Optional window ID for message routing
+   * @returns The instance ID for this mount
+   */
+  async mountSlate(
+    slateId: string,
+    filePath: string,
+    renderCallback: (message: SlateRenderMessage) => void,
+    windowId?: string
+  ): Promise<string> {
+    const slate = this.slates.get(slateId);
+    if (!slate) {
+      throw new Error(`Slate not found: ${slateId}`);
+    }
+
+    // Generate unique instance ID
+    const instanceId = `${slateId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Store instance info and callback
+    this.activeSlateInstances.set(instanceId, {
+      slateId,
+      pluginName: slate.pluginName,
+      filePath,
+      windowId,
+    });
+    this.slateRenderCallbacks.set(instanceId, renderCallback);
+    this.pendingSlateRenders.set(instanceId, []);
+
+    // Get plugin state and settings for context
+    const pluginState = this.pluginState.get(slate.pluginName) || {};
+    const pluginSettings = this.settingsValues.get(slate.pluginName) || {};
+
+    const context: SlateContext = {
+      instanceId,
+      filePath,
+      slateId,
+      state: pluginState,
+      settings: pluginSettings,
+    };
+
+    // Call the mount handler if registered
+    const mountHandler = this.slateMountHandlers.get(slateId);
+    if (mountHandler) {
+      try {
+        await mountHandler(context);
+      } catch (error) {
+        console.error(`[PluginManager] Mount handler failed for slate ${slateId}:`, error);
+        // Clean up on error
+        this.activeSlateInstances.delete(instanceId);
+        this.slateRenderCallbacks.delete(instanceId);
+        throw error;
+      }
+    } else {
+      console.warn(`[PluginManager] No mount handler registered for slate ${slateId}`);
+    }
+
+    console.info(`[PluginManager] Mounted slate instance ${instanceId} for ${filePath}`);
+    return instanceId;
+  }
+
+  /**
+   * Unmount a slate instance - calls the plugin's onUnmount handler
+   * @param instanceId - The instance ID from mountSlate
+   */
+  async unmountSlate(instanceId: string): Promise<void> {
+    const instance = this.activeSlateInstances.get(instanceId);
+    if (!instance) {
+      console.warn(`[PluginManager] Slate instance not found for unmount: ${instanceId}`);
+      return;
+    }
+
+    // Call the unmount handler if registered
+    const unmountHandler = this.slateUnmountHandlers.get(instance.slateId);
+    if (unmountHandler) {
+      try {
+        await unmountHandler(instanceId);
+      } catch (error) {
+        console.error(`[PluginManager] Unmount handler failed for slate instance ${instanceId}:`, error);
+      }
+    }
+
+    // Clean up
+    this.activeSlateInstances.delete(instanceId);
+    this.slateRenderCallbacks.delete(instanceId);
+    this.pendingSlateRenders.delete(instanceId);
+
+    console.info(`[PluginManager] Unmounted slate instance ${instanceId}`);
+  }
+
+  /**
+   * Send an event from slate UI to plugin
+   * @param instanceId - The slate instance ID
+   * @param eventType - Type of event (e.g., "button-click", "input-change")
+   * @param payload - Event data
+   */
+  async sendSlateEvent(instanceId: string, eventType: string, payload: unknown): Promise<void> {
+    const instance = this.activeSlateInstances.get(instanceId);
+    if (!instance) {
+      console.warn(`[PluginManager] Slate instance not found for event: ${instanceId}`);
+      return;
+    }
+
+    const eventHandler = this.slateEventHandlers.get(instance.slateId);
+    if (eventHandler) {
+      try {
+        await eventHandler(instanceId, eventType, payload);
+      } catch (error) {
+        console.error(`[PluginManager] Event handler failed for slate ${instanceId}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Get active instance info
+   */
+  getSlateInstance(instanceId: string): { slateId: string; pluginName: string; filePath: string } | undefined {
+    return this.activeSlateInstances.get(instanceId);
   }
 
   // ==========================================================================

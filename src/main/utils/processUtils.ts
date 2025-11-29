@@ -14,6 +14,11 @@ export const execSpawnSync = (
   const result = spawnSync(command, args, {
     cwd: BUN_PATH,
     ...opts,
+    env: {
+      ...process.env,
+      ...opts.env,
+      CI: 'true', // Skip interactive prompts in CLIs
+    },
   });
 
   if (result.error) {

@@ -12,6 +12,7 @@ import {
   type AppState,
   focusTabWithId,
   openNewTabForNode,
+  openNewTab,
   editNodeSettings,
   removeProjectFromColab,
   splitPane,
@@ -23,7 +24,12 @@ import { join, basename, dirname } from "../utils/pathUtils";
 import { _getNode, getNode } from "./FileWatcher";
 import { trackFrontend } from "./analytics";
 import {untrack} from "solid-js";
+import { loadPluginSlates } from "./files";
+import { initializeSlateRegistry } from "./slates/pluginSlateRegistry";
 // import { readSlateConfigFile } from "./files";
+
+// Initialize the slate component registry early
+initializeSlateRegistry();
 
 const rpc = Electroview.defineRPC<WorkspaceRPC>({
   maxRequestTime: 60 * 1000,
@@ -257,6 +263,14 @@ const rpc = Electroview.defineRPC<WorkspaceRPC>({
       openNewTab: ({ nodePath }) => {
         openNewTabForNode(nodePath, false, { focusNewTab: false });
       },
+      openAsText: ({ nodePath }) => {
+        // Open file directly in code editor, bypassing any slate
+        openNewTab({
+          type: "file",
+          path: nodePath,
+          forceEditor: true,
+        }, false);
+      },
       openUrlInNewTab: ({url}) => {
         console.log('openUrlInNewTab', url)
         openNewTabForNode(`__COLAB_INTERNAL__/web`, false, { focusNewTab: false, url });
@@ -432,6 +446,10 @@ const rpc = Electroview.defineRPC<WorkspaceRPC>({
       terminalExit: (data: { terminalId: string; exitCode: number }) => {
         // Notify all terminal components about terminal exit
         window.dispatchEvent(new CustomEvent('terminalExit', { detail: data }));
+      },
+      slateRender: (data: { instanceId: string; html?: string; script?: string }) => {
+        // Notify slate components about render updates from plugins
+        window.dispatchEvent(new CustomEvent('slateRender', { detail: data }));
       },
       createSpecialFile: async ({ nodePath, fileType }) => {
         let fileName = "";

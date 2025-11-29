@@ -633,6 +633,29 @@ export interface PluginAPI {
     ): Disposable;
   };
 
+  /** Shell operations (requires process.spawn permission) */
+  shell: {
+    /**
+     * Execute a shell command and return the result
+     * @param command - The command to execute
+     * @param options - Execution options
+     * @returns Promise with stdout, stderr, and exit code
+     */
+    exec(
+      command: string,
+      options?: {
+        cwd?: string;
+        env?: Record<string, string>;
+        timeout?: number;
+      }
+    ): Promise<{ stdout: string; stderr: string; exitCode: number }>;
+    /**
+     * Open a URL in the default browser or a file with its default application
+     * @param target - URL or file path to open
+     */
+    openExternal(target: string): Promise<void>;
+  };
+
   /** UI notifications */
   notifications: {
     /** Show info message */
@@ -732,6 +755,88 @@ export interface PluginAPI {
      * @param callback - Called when any setting changes
      */
     onChange(callback: (key: string, value: string | number | boolean) => void): Disposable;
+    /**
+     * Set validation status for a setting (shown inline in settings panel)
+     * Use this to show validation feedback for tokens/credentials
+     * @param key - Setting key
+     * @param status - Validation status
+     */
+    setValidationStatus(key: string, status: SettingValidationStatus): void;
+    /**
+     * Send a message to the settings UI (for custom settings components)
+     * @param message - Message payload (must be JSON-serializable)
+     */
+    postMessage(message: unknown): void;
+    /**
+     * Subscribe to messages from the settings UI
+     * @param callback - Called when a message is received from the settings UI
+     */
+    onMessage(callback: (message: unknown) => void): Disposable;
+  };
+
+  /** Custom slate registration (for custom file handlers/UIs) */
+  slates: {
+    /**
+     * Register a custom slate handler for specific file patterns.
+     * When a file matches the pattern, the plugin's slate UI is shown
+     * instead of the default text editor.
+     * @param config - Slate configuration including patterns and component name
+     */
+    register(config: SlateConfig): Disposable;
+    /**
+     * Register a callback for when a slate instance should mount.
+     * This is called when the user opens a file/folder that matches your slate patterns.
+     * @param slateId - The slate ID (without plugin prefix, e.g., "devlink")
+     * @param handler - Called with context including instanceId, filePath, state, settings
+     */
+    onMount(slateId: string, handler: (context: SlateContext) => void | Promise<void>): Disposable;
+    /**
+     * Register a callback for when a slate instance should unmount.
+     * Use this to clean up any resources associated with the instance.
+     * @param slateId - The slate ID (without plugin prefix)
+     * @param handler - Called with the instanceId being unmounted
+     */
+    onUnmount(slateId: string, handler: (instanceId: string) => void | Promise<void>): Disposable;
+    /**
+     * Register a callback for events from the slate UI.
+     * When the user interacts with elements in your slate, events are sent here.
+     * @param slateId - The slate ID (without plugin prefix)
+     * @param handler - Called with instanceId, eventType, and payload
+     */
+    onEvent(slateId: string, handler: (instanceId: string, eventType: string, payload: unknown) => void | Promise<void>): Disposable;
+    /**
+     * Render HTML content into a slate instance.
+     * Call this from your onMount handler or event handlers to update the UI.
+     * @param instanceId - The instance ID (from SlateContext or event handler)
+     * @param html - HTML content to render
+     * @param script - Optional JavaScript to execute after render
+     */
+    render(instanceId: string, html: string, script?: string): void;
+  };
+
+  /** Arbitrary state storage for complex plugin data (arrays, objects, etc.) */
+  state: {
+    /**
+     * Get a value from plugin state
+     * @param key - State key
+     * @returns The stored value, or undefined if not set
+     */
+    get<T = unknown>(key: string): T | undefined;
+    /**
+     * Set a value in plugin state (must be JSON-serializable)
+     * @param key - State key
+     * @param value - Value to store
+     */
+    set<T = unknown>(key: string, value: T): void;
+    /**
+     * Delete a value from plugin state
+     * @param key - State key
+     */
+    delete(key: string): void;
+    /**
+     * Get all state for this plugin
+     */
+    getAll(): Record<string, unknown>;
   };
 }
 
@@ -884,8 +989,8 @@ export interface PluginSettingField {
   key: string;
   /** Display label */
   label: string;
-  /** Field type */
-  type: 'string' | 'number' | 'boolean' | 'select' | 'color';
+  /** Field type. Use 'secret' for passwords/tokens that should be masked */
+  type: 'string' | 'number' | 'boolean' | 'select' | 'color' | 'secret';
   /** Default value */
   default?: string | number | boolean;
   /** Description/help text */
@@ -898,6 +1003,8 @@ export interface PluginSettingField {
   max?: number;
   /** For 'number' type: step value */
   step?: number;
+  /** For 'secret' type: placeholder text */
+  placeholder?: string;
 }
 
 /** Plugin settings schema for the settings panel */
@@ -908,10 +1015,132 @@ export interface PluginSettingsSchema {
   description?: string;
   /** Setting fields */
   fields: PluginSettingField[];
+  /**
+   * Custom settings component to render below the schema-based fields.
+   * This should be the name of a registered component (e.g., 'webflow-tokens').
+   * The component will receive the plugin name and can use RPC to communicate with the plugin.
+   */
+  customSettingsComponent?: string;
 }
 
 /** Stored settings values for a plugin */
 export type PluginSettingsValues = Record<string, string | number | boolean>
+
+/** Validation status for a setting field (shown inline in settings panel) */
+export interface SettingValidationStatus {
+  /** Validation state */
+  state: 'idle' | 'validating' | 'valid' | 'invalid';
+  /** Optional message to display */
+  message?: string;
+}
+
+/** Map of setting keys to their validation status */
+export type SettingValidationStatuses = Record<string, SettingValidationStatus>
+
+// ============================================================================
+// Slate Registration Types
+// ============================================================================
+
+/**
+ * Configuration for a plugin-registered slate (custom file handler)
+ * When a file matches, the plugin's slate UI is shown instead of the text editor
+ */
+export interface SlateConfig {
+  /** Unique ID for this slate type */
+  id: string;
+  /** Display name for the slate */
+  name: string;
+  /** Description shown in UI */
+  description?: string;
+  /** Icon to show in tab (emoji or icon name) */
+  icon?: string;
+  /**
+   * File matching patterns - slate is shown when ANY pattern matches
+   * Can be:
+   * - Glob patterns: "*.webflowrc.json", "**\/webflow.json"
+   * - Exact filenames: ".webflowrc.json"
+   */
+  patterns: string[];
+  /**
+   * Optional: A function to validate file content before showing slate
+   * Return true to show slate, false to use default editor
+   * If not provided, any matching file will show the slate
+   */
+  matchContent?: (filePath: string, content: string) => boolean | Promise<boolean>;
+  /**
+   * @deprecated Use mount-based rendering instead
+   * The component name to render for this slate.
+   */
+  component?: string;
+  /**
+   * Whether this slate can handle folders (for project-level slates)
+   */
+  folderHandler?: boolean;
+}
+
+/**
+ * Context provided to plugin slate when mounting
+ */
+export interface SlateContext {
+  /** Unique instance ID for this slate mount */
+  instanceId: string;
+  /** The file path this slate is rendering for */
+  filePath: string;
+  /** The slate ID from SlateConfig */
+  slateId: string;
+  /** Plugin's current state (from api.state) */
+  state: Record<string, unknown>;
+  /** Plugin's current settings (from api.settings) */
+  settings: Record<string, string | number | boolean>;
+}
+
+/**
+ * Registered slate with plugin info
+ */
+export interface RegisteredSlate {
+  pluginName: string;
+  config: SlateConfig;
+}
+
+/**
+ * Message sent to plugin when slate should mount
+ */
+export interface SlateMountMessage {
+  type: 'slateMount';
+  instanceId: string;
+  slateId: string;
+  filePath: string;
+}
+
+/**
+ * Message sent to plugin when slate should unmount
+ */
+export interface SlateUnmountMessage {
+  type: 'slateUnmount';
+  instanceId: string;
+}
+
+/**
+ * Message from plugin to render content into slate
+ */
+export interface SlateRenderMessage {
+  type: 'slateRender';
+  instanceId: string;
+  /** HTML content to render, or null to clear */
+  html?: string;
+  /** JavaScript to execute after HTML is rendered */
+  script?: string;
+}
+
+/**
+ * Message from slate UI to plugin (user interactions)
+ */
+export interface SlateEventMessage {
+  type: 'slateEvent';
+  instanceId: string;
+  eventType: string;
+  payload: unknown;
+}
 
 // ============================================================================
 // npm Registry Types

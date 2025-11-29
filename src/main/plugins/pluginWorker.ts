@@ -167,6 +167,24 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
     },
 
+    shell: {
+      async exec(
+        command: string,
+        options?: { cwd?: string; env?: Record<string, string>; timeout?: number }
+      ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+        // Note: entitlements are checked on the main process side
+        return requestFromMain('shell.exec', { command, options }) as Promise<{
+          stdout: string;
+          stderr: string;
+          exitCode: number;
+        }>;
+      },
+
+      async openExternal(target: string): Promise<void> {
+        return requestFromMain('shell.openExternal', { target }) as Promise<void>;
+      },
+    },
+
     notifications: {
       showInfo(message: string): void {
         if (permissions.notifications !== false) {

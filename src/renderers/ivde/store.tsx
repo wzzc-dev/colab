@@ -70,6 +70,7 @@ export interface WebTabType extends BaseTabType {
 
 export interface FileTabType extends BaseTabType {
   type: "file";
+  forceEditor?: boolean; // Open as text editor even if file has a slate
 }
 
 export interface TerminalTabType extends BaseTabType {
@@ -219,10 +220,6 @@ export interface AppState {
       };
 
   // authUrl: string | null;
-  webflowAuth: {
-    authUrl: null | string;
-    resolver: null | ((accessToken: string) => void);
-  };
   githubAuth: {
     authUrl: null | string;
     resolver: null | (() => void);
@@ -236,6 +233,18 @@ export interface AppState {
   // when needed for a particular folder it's read from disk and cached here, we then listen
   // to filchange events (eg: from a git pull) and update the cache if it exists
   slateCache: { [absolutePath: string]: SlateType };
+
+  // Plugin slates loaded from the plugin system - these provide custom file handlers
+  // registered by plugins (e.g., webflow-plugin for .webflowrc.json files)
+  pluginSlates: Array<{
+    id: string;
+    pluginName: string;
+    name: string;
+    description?: string;
+    icon?: string;
+    patterns: string[];
+    folderHandler?: boolean;
+  }>;
 
   // directoryWatchers: { [projectId: string]: any };
   dragState:
@@ -374,10 +383,6 @@ const initialState: AppState = {
 
   // oauth url to get access token, drives the oauth webview
   // authUrl: null,
-  webflowAuth: {
-    authUrl: null,
-    resolver: null,
-  },
   githubAuth: {
     authUrl: null,
     resolver: null,
@@ -388,6 +393,7 @@ const initialState: AppState = {
   // fileTrees: {},
   fileCache: {},
   slateCache: {},
+  pluginSlates: [],
   dragState: null,
   isResizingPane: false,
   workspace: {
