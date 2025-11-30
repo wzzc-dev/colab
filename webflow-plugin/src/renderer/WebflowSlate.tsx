@@ -25,6 +25,32 @@ import { join } from "../../../src/renderers/utils/pathUtils";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 
+// Declare the colab-terminal custom element for JSX/TSX
+interface ColabTerminalElement extends HTMLElement {
+  run(command: string): void;
+  write(data: string): void;
+  clear(): void;
+  kill(): void;
+  focus(): void;
+  isReady(): boolean;
+}
+
+declare module "solid-js" {
+  namespace JSX {
+    interface IntrinsicElements {
+      "colab-terminal": {
+        cwd?: string;
+        shell?: string;
+        style?: any;
+        ref?: (el: ColabTerminalElement) => void;
+        // SolidJS uses prop: prefix for properties vs attributes
+        "prop:cwd"?: string;
+        "prop:shell"?: string;
+      };
+    }
+  }
+}
+
 interface WebflowSlateProps {
   node: PreviewFileTreeType | undefined;
   slateType: "devlink" | "code-components" | "cloud" | "dashboard";
@@ -847,155 +873,6 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
     openNewTabForNode('__COLAB_INTERNAL__/web', false, { focusNewTab: true, url: "https://webflow.com/dashboard" });
   };
 
-  // Cloud: Deploy terminal state (for streaming output)
-  const [cloudDeployTerminalId, setCloudDeployTerminalId] = createSignal<string | null>(null);
-
-  // Cloud: Deploy to Webflow Cloud
-  const deployToCloud = async () => {
-    setDeployRunning(true);
-    setCommandOutput(null);
-    setError(null);
-
-    try {
-      const cfg = config() as CloudProjectConfig | null;
-      const cwd = getProjectRoot();
-
-      if (!cwd) {
-        setError("Could not determine project directory");
-        setDeployRunning(false);
-        return;
-      }
-
-      // Check for site selection
-      const siteId = cfg?.cloud?.siteId || cfg?.siteId;
-      if (!siteId) {
-        setError("Please select a Webflow site first");
-        setDeployRunning(false);
-        return;
-      }
-
-      // Get the site token - prefer site-specific token if available
-      const token = getSiteToken(siteId) || authToken();
-      if (!token) {
-        setError("No authentication token found. Please connect your Webflow account in Settings.");
-        setDeployRunning(false);
-        return;
-      }
-
-      // Pre-configure telemetry in webflow.json to skip prompts
-      await ensureTelemetryConfig(cwd);
-
-      // Create a terminal for streaming output
-      const terminalId = await electrobun.rpc?.request.createTerminal({ cwd });
-      if (terminalId) {
-        setCloudDeployTerminalId(terminalId);
-
-        // Build the deploy command with env vars and auto-answer prompts
-        // Use printf to pipe 'y' responses for any remaining prompts
-        // Set env vars silently first, then run the command on a new line to avoid showing tokens
-        const envSetup = `export WEBFLOW_SITE_ID="${siteId}" WEBFLOW_SITE_API_TOKEN="${token}" WEBFLOW_SKIP_UPDATE_CHECKS=true`;
-        const deployCmd = `printf 'y\\ny\\ny\\n' | bunx @webflow/webflow-cli cloud deploy`;
-
-        // Send env vars with no echo, then clear and run the visible command
-        await electrobun.rpc?.request.writeToTerminal({
-          terminalId,
-          data: `${envSetup} && clear && echo "Deploying to Webflow Cloud..." && ${deployCmd}\n`
-        });
-
-        // Monitor for completion - check terminal status periodically
-        let checkCount = 0;
-        const maxChecks = 300; // 5 minutes at 1 second intervals
-
-        const checkCompletion = () => {
-          checkCount++;
-          // We can't easily detect completion from terminal output,
-          // so we just leave the terminal running and let user see the output
-          // The deploy button stays in "running" state until they click again or we timeout
-          if (checkCount >= maxChecks) {
-            setDeployRunning(false);
-          }
-        };
-
-        // Set a timeout to eventually reset the running state
-        setTimeout(() => {
-          setDeployRunning(false);
-        }, 300000); // 5 minutes max
-      } else {
-        setError("Failed to create terminal for deployment");
-        setDeployRunning(false);
-      }
-    } catch (e) {
-      const errMsg = e instanceof Error ? e.message : String(e);
-      setError(errMsg);
-      setDeployRunning(false);
-    }
-  };
-
-  // Cloud: Dev server state
-  const [cloudDevServerTerminalId, setCloudDevServerTerminalId] = createSignal<string | null>(null);
-  const [cloudDevServerRunning, setCloudDevServerRunning] = createSignal(false);
-
-
-  // Cloud: Start local dev server
-  const startCloudDevServer = async () => {
-    setDevRunning(true);
-    setCommandOutput(null);
-    setError(null);
-    try {
-      const cwd = getProjectRoot();
-      if (!cwd) {
-        throw new Error("Could not determine project directory");
-      }
-
-      // Create a terminal - output will stream directly to the TerminalOutputPanel
-      const terminalId = await electrobun.rpc?.request.createTerminal({ cwd });
-      if (terminalId) {
-        setCloudDevServerTerminalId(terminalId);
-
-        // First install deps, then run dev server
-        await electrobun.rpc?.request.writeToTerminal({
-          terminalId,
-          data: "bun install && bun run dev\n"
-        });
-
-        setCloudDevServerRunning(true);
-      } else {
-        setError("Failed to create terminal for dev server");
-      }
-    } catch (e) {
-      const errMsg = e instanceof Error ? e.message : String(e);
-      setError(errMsg);
-    } finally {
-      setDevRunning(false);
-    }
-  };
-
-  // Cloud: Stop dev server
-  const stopCloudDevServer = async () => {
-    const terminalId = cloudDevServerTerminalId();
-    if (terminalId) {
-      // Send Ctrl+C to stop the server
-      await electrobun.rpc?.request.writeToTerminal({
-        terminalId,
-        data: "\x03" // Ctrl+C
-      });
-      // Kill the terminal
-      await electrobun.rpc?.request.killTerminal({ terminalId });
-      setCloudDevServerTerminalId(null);
-      setCloudDevServerRunning(false);
-      setCommandOutput("Dev server stopped.\n");
-    }
-  };
-
-  // Cloud: Toggle dev server
-  const toggleCloudDevServer = async () => {
-    if (cloudDevServerRunning()) {
-      await stopCloudDevServer();
-    } else {
-      await startCloudDevServer();
-    }
-  };
-
   // Update Cloud config file with selected site
   const updateCloudConfigSite = async (site: WebflowSite, token: string) => {
     if (!props.node?.path) {
@@ -1200,20 +1077,24 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
               config={config() as CloudProjectConfig}
               connected={connected()}
               sites={sites()}
+              cwd={getProjectRoot() || ""}
+              siteId={(() => {
+                const cfg = config() as CloudProjectConfig | null;
+                return cfg?.cloud?.siteId || cfg?.siteId || null;
+              })()}
+              siteToken={(() => {
+                const cfg = config() as CloudProjectConfig | null;
+                const siteId = cfg?.cloud?.siteId || cfg?.siteId;
+                return siteId ? (getSiteToken(siteId) || authToken()) : null;
+              })()}
               onOpenSettings={openSettings}
-              onDeploy={deployToCloud}
-              onToggleDevServer={toggleCloudDevServer}
               onChangeSite={(site) => {
                 const token = authToken();
                 if (token) updateCloudConfigSite(site, token);
               }}
               onConfigChange={updateCloudConfigField}
-              deployRunning={deployRunning()}
-              devServerRunning={cloudDevServerRunning()}
-              commandOutput={commandOutput()}
               error={error()}
               nodePath={props.node?.path}
-              streamTerminalId={cloudDeployTerminalId() || cloudDevServerTerminalId()}
             />
           </Match>
 
@@ -1794,19 +1675,30 @@ const CloudSlateContent = (props: {
   config: CloudProjectConfig | null;
   connected: boolean;
   sites: WebflowSite[];
+  cwd: string;
+  siteId: string | null;
+  siteToken: string | null;
   onOpenSettings: () => void;
-  onDeploy: () => Promise<void>;
-  onToggleDevServer: () => Promise<void>;
   onChangeSite: (site: WebflowSite) => void;
   onConfigChange: (key: string, value: string) => Promise<void>;
-  deployRunning: boolean;
-  devServerRunning: boolean;
-  commandOutput: string | null;
   error: string | null;
   nodePath?: string;
-  streamTerminalId?: string | null;
 }): JSXElement => {
   const [showSitePicker, setShowSitePicker] = createSignal(false);
+  const [terminalMode, setTerminalMode] = createSignal<'none' | 'deploy' | 'dev'>('none');
+  let terminalRef: ColabTerminalElement | null = null;
+
+  // Get the working directory - derive from nodePath if cwd not provided
+  const getTerminalCwd = () => {
+    if (props.cwd) return props.cwd;
+    if (props.nodePath) {
+      // nodePath is the config file path, get its directory
+      const parts = props.nodePath.split('/');
+      parts.pop(); // Remove filename
+      return parts.join('/');
+    }
+    return '/';
+  };
 
   const getFrameworkIcon = () => {
     switch (props.config?.framework) {
@@ -1832,6 +1724,54 @@ const CloudSlateContent = (props: {
 
   // Get mountPath from either nested cloud config or top-level
   const getMountPath = () => props.config?.cloud?.mountPath || props.config?.mountPath;
+
+  // Start deploy in terminal
+  const startDeploy = () => {
+    if (!props.siteId || !props.siteToken) {
+      return;
+    }
+    // If already in deploy mode, just run the command again
+    if (terminalMode() === 'deploy' && terminalRef) {
+      // Set env vars, clear to hide tokens, then run deploy
+      terminalRef.run(`export WEBFLOW_SITE_ID="${props.siteId}" WEBFLOW_SITE_API_TOKEN="${props.siteToken}" WEBFLOW_SKIP_UPDATE_CHECKS=true && clear && bunx @webflow/webflow-cli cloud deploy`);
+    } else {
+      setTerminalMode('deploy');
+    }
+  };
+
+  // Start dev server in terminal
+  const startDevServer = () => {
+    if (terminalMode() === 'dev' && terminalRef) {
+      // Already running, run command again
+      terminalRef.run('bun install && bun run dev');
+    } else {
+      setTerminalMode('dev');
+    }
+  };
+
+  // Stop the current terminal
+  const stopTerminal = () => {
+    if (terminalRef) {
+      terminalRef.kill();
+    }
+    setTerminalMode('none');
+    terminalRef = null;
+  };
+
+  // Called when terminal element is created
+  const onTerminalRef = (el: ColabTerminalElement) => {
+    terminalRef = el;
+    // Run the appropriate command once terminal is ready
+    // Small delay to ensure terminal is initialized
+    setTimeout(() => {
+      if (terminalMode() === 'deploy' && props.siteId && props.siteToken) {
+        // Set env vars, clear screen to hide tokens, then run deploy
+        el.run(`export WEBFLOW_SITE_ID="${props.siteId}" WEBFLOW_SITE_API_TOKEN="${props.siteToken}" WEBFLOW_SKIP_UPDATE_CHECKS=true && clear && bunx @webflow/webflow-cli cloud deploy`);
+      } else if (terminalMode() === 'dev') {
+        el.run('bun install && bun run dev');
+      }
+    }, 150);
+  };
 
   // Get siteId from either nested cloud config or top-level
   const getSiteId = () => props.config?.cloud?.siteId || props.config?.siteId;
@@ -2085,16 +2025,15 @@ const CloudSlateContent = (props: {
             icon="🚀"
             label="Deploy"
             description={getSiteId() ? "Push to Webflow Cloud" : "Select a site first"}
-            onClick={props.onDeploy}
-            loading={props.deployRunning}
-            primary
+            onClick={startDeploy}
+            active={terminalMode() === 'deploy'}
           />
           <ActionButton
-            icon={props.devServerRunning ? "⏹" : "▶"}
-            label={props.devServerRunning ? "Stop Server" : "Dev Server"}
-            description={props.devServerRunning ? "Running on :4321" : "Run locally"}
-            onClick={props.onToggleDevServer}
-            active={props.devServerRunning}
+            icon={terminalMode() === 'dev' ? "⏹" : "▶"}
+            label={terminalMode() === 'dev' ? "Stop Server" : "Dev Server"}
+            description={terminalMode() === 'dev' ? "Running on :4321" : "Run locally"}
+            onClick={() => terminalMode() === 'dev' ? stopTerminal() : startDevServer()}
+            active={terminalMode() === 'dev'}
           />
           <ActionButton
             icon="⚙"
@@ -2104,11 +2043,76 @@ const CloudSlateContent = (props: {
           />
         </div>
 
-        <TerminalOutputPanel
-          output={props.commandOutput}
-          error={props.error}
-          streamTerminalId={props.streamTerminalId}
-        />
+        {/* Error display */}
+        <Show when={props.error}>
+          <div
+            style={{
+              background: "#2a1515",
+              border: "1px solid #5c2626",
+              "border-radius": "8px",
+              padding: "12px 16px",
+              "margin-bottom": "16px",
+              color: "#f87171",
+              "font-size": "13px",
+            }}
+          >
+            {props.error}
+          </div>
+        </Show>
+
+        {/* PTY Terminal - shows when deploy or dev mode is active */}
+        <Show when={terminalMode() !== 'none'}>
+          <div
+            style={{
+              background: "#0a0a0a",
+              border: "1px solid #333",
+              "border-radius": "8px",
+              overflow: "hidden",
+              "margin-top": "8px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                "align-items": "center",
+                "justify-content": "space-between",
+                padding: "8px 12px",
+                "border-bottom": "1px solid #333",
+                background: "#1a1a1a",
+              }}
+            >
+              <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
+                <span style={{ color: terminalMode() === 'deploy' ? "#4ade80" : "#60a5fa" }}>
+                  {terminalMode() === 'deploy' ? "🚀" : "▶"}
+                </span>
+                <span style={{ "font-size": "12px", "font-weight": 500, color: "#fff" }}>
+                  {terminalMode() === 'deploy' ? "Deploying to Webflow Cloud" : "Development Server"}
+                </span>
+              </div>
+              <button
+                onClick={stopTerminal}
+                style={{
+                  background: "#333",
+                  border: "1px solid #444",
+                  "border-radius": "4px",
+                  padding: "4px 8px",
+                  color: "#888",
+                  cursor: "pointer",
+                  "font-size": "11px",
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <div style={{ height: "300px" }}>
+              <colab-terminal
+                prop:cwd={getTerminalCwd()}
+                ref={onTerminalRef}
+                style={{ width: "100%", height: "100%" }}
+              />
+            </div>
+          </div>
+        </Show>
       </Show>
     </div>
   );

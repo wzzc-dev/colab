@@ -1298,6 +1298,7 @@ export default declareComponent(ColabBadge, {
 
       // Create package.json
       // Include @astrojs/cloudflare as it's required by Webflow Cloud CLI
+      // Note: @astrojs/cloudflare@12.x requires astro@^5.7.0
       const packageJsonPath = join(targetDir, 'package.json');
       const packageJson = {
         name: projectName,
@@ -1310,7 +1311,7 @@ export default declareComponent(ColabBadge, {
           'webflow:deploy': 'webflow cloud deploy',
         },
         dependencies: {
-          'astro': '^4.16.0',
+          'astro': '^5.7.0',
           '@astrojs/cloudflare': '^12.0.1',
         },
         devDependencies: {

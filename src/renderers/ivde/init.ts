@@ -26,10 +26,14 @@ import { trackFrontend } from "./analytics";
 import {untrack} from "solid-js";
 import { loadPluginSlates } from "./files";
 import { initializeSlateRegistry } from "./slates/pluginSlateRegistry";
+import { registerColabTerminal } from "../components/ColabTerminal";
 // import { readSlateConfigFile } from "./files";
 
 // Initialize the slate component registry early
 initializeSlateRegistry();
+
+// Register web components for plugins to use
+registerColabTerminal();
 
 const rpc = Electroview.defineRPC<WorkspaceRPC>({
   maxRequestTime: 60 * 1000,
@@ -565,3 +569,6 @@ You are a helpful assistant with the following characteristics:
 });
 
 export const electrobun = new Electroview({ rpc });
+
+// Expose electrobun on window for web components (like colab-terminal) to access
+(window as any).electrobun = electrobun;
