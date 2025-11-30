@@ -9,7 +9,8 @@ export const isInstalled = () => {
 };
 
 export const getVersion = (forceRefetch = false) => {
-  const versionResult = execSpawnSync(GIT_BINARY_PATH, ["--version"]) || "";
+  const result = execSpawnSync(GIT_BINARY_PATH, ["--version"]);
+  const versionResult = result.stdout || "";
   return versionResult.replace(/[^\d]*([\d.]+)[^\d]*/, "$1");
 };
 

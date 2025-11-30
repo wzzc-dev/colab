@@ -6,8 +6,12 @@ import { existsSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import {
   BUN_BINARY_PATH,
+  COLAB_HOME_FOLDER,
   COLAB_PLUGINS_PATH,
   COLAB_PLUGINS_REGISTRY_PATH,
+  GIT_BINARY_PATH,
+  FD_BINARY_PATH,
+  RG_BINARY_PATH,
 } from '../consts/paths';
 import { execSpawnSync } from '../utils/processUtils';
 import type {
@@ -26,6 +30,7 @@ import type {
   SettingValidationStatuses,
 } from './types';
 import { DEFAULT_PERMISSIONS, summarizeEntitlements } from './types';
+import { broadcastToAllWindows } from '../workspaceWindows';
 
 // ============================================================================
 // Registry Management
@@ -1088,6 +1093,20 @@ class PluginManager {
         },
         getAll(): Record<string, unknown> {
           return { ...(self.pluginState.get(pluginName) || {}) };
+        },
+      },
+      paths: {
+        bun: BUN_BINARY_PATH,
+        git: GIT_BINARY_PATH,
+        fd: FD_BINARY_PATH,
+        rg: RG_BINARY_PATH,
+        colabHome: COLAB_HOME_FOLDER,
+        plugins: COLAB_PLUGINS_PATH,
+      },
+      ui: {
+        openUrl(url: string) {
+          // Broadcast to all windows to open a web tab with this URL
+          broadcastToAllWindows('openUrlInNewTab', { url });
         },
       },
     } as PluginAPI;

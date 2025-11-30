@@ -838,6 +838,31 @@ export interface PluginAPI {
      */
     getAll(): Record<string, unknown>;
   };
+
+  /** Paths to bundled binaries and directories */
+  paths: {
+    /** Path to bundled bun binary */
+    bun: string;
+    /** Path to bundled git binary */
+    git: string;
+    /** Path to bundled fd binary (fast find) */
+    fd: string;
+    /** Path to bundled rg binary (ripgrep) */
+    rg: string;
+    /** Colab home folder (~/.colab or ~/.colab-canary) */
+    colabHome: string;
+    /** Colab plugins folder */
+    plugins: string;
+  };
+
+  /** UI operations (opening tabs, etc.) */
+  ui: {
+    /**
+     * Open a URL in a new web tab within Colab
+     * @param url - The URL to open
+     */
+    openUrl(url: string): void;
+  };
 }
 
 /** Handle to update or dispose a status bar item */

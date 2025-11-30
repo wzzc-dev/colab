@@ -56,6 +56,15 @@ export function initializeRenderer(api: PluginRendererAPI): void {
     );
   });
 
+  api.registerSlateComponent("colab-webflow.cloud", (props) => {
+    return (
+      <WebflowSlate
+        node={props.node}
+        slateType="cloud"
+      />
+    );
+  });
+
   // Register settings components
   api.registerSettingsComponent("webflow-tokens", WebflowTokenManager);
 

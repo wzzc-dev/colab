@@ -9,8 +9,7 @@ export const execSpawnSync = (
   command: string,
   args: string[] = [],
   opts: SpawnSyncOptionsWithBufferEncoding = {}
-) => {
-  // todo (yoav): do something with result? do we even need this util?
+): { stdout: string; stderr: string; exitCode: number | null } => {
   const result = spawnSync(command, args, {
     cwd: BUN_PATH,
     ...opts,
@@ -25,14 +24,16 @@ export const execSpawnSync = (
     console.error(`error running ${command}`, result.error);
   }
 
-  if (result.stderr && result.stderr.length > 0) {
-    console.error("stderr: ", result.stderr.toString());
+  const stdout = result.stdout?.toString().trim() || "";
+  const stderr = result.stderr?.toString().trim() || "";
+
+  if (stderr) {
+    console.error("stderr: ", stderr);
   }
 
-  if (result.stdout && result.stdout.length > 0) {
-    return result.stdout.toString().trim();
-  } else {
-    console.log("No output");
-    return "";
-  }
+  return {
+    stdout,
+    stderr,
+    exitCode: result.status,
+  };
 };

@@ -20,7 +20,7 @@ import {
 } from "solid-js";
 import type { PreviewFileTreeType } from "../../../src/shared/types/types";
 import { electrobun } from "../../../src/renderers/ivde/init";
-import { state, setState, openNewTab } from "../../../src/renderers/ivde/store";
+import { state, setState, openNewTab, openNewTabForNode } from "../../../src/renderers/ivde/store";
 import { join } from "../../../src/renderers/utils/pathUtils";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -49,9 +49,16 @@ interface DevLinkConfig {
 }
 
 interface CodeComponentsConfig {
-  name: string;
-  version: string;
-  components: string[];
+  // New structure with library key
+  library?: {
+    name: string;
+    components: string[];
+    bundleConfig?: string;
+  };
+  // Legacy flat structure (for backwards compatibility)
+  name?: string;
+  version?: string;
+  components?: string[];
   workspaceId?: string;
 }
 
@@ -74,6 +81,10 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
   const [error, setError] = createSignal<string | null>(null);
   const [pullRunning, setPullRunning] = createSignal(false);
   const [statusRunning, setStatusRunning] = createSignal(false);
+  const [shareRunning, setShareRunning] = createSignal(false);
+  const [bundleRunning, setBundleRunning] = createSignal(false);
+  const [deployRunning, setDeployRunning] = createSignal(false);
+  const [devRunning, setDevRunning] = createSignal(false);
   const [commandOutput, setCommandOutput] = createSignal<string | null>(null);
   const [syncStatus, setSyncStatus] = createSignal<string>("unknown");
   const [lastChecked, setLastChecked] = createSignal<Date | null>(null);
@@ -86,6 +97,19 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
     return parts.join("/");
   };
 
+  // Token type from plugin state
+  interface StoredToken {
+    id: string;
+    token: string;
+    type: 'oauth' | 'site' | 'workspace';
+    status: string;
+    siteId?: string;
+    workspaceId?: string;
+  }
+
+  // Store all tokens so we can pick the right one for different operations
+  const [allTokens, setAllTokens] = createSignal<StoredToken[]>([]);
+
   // Check if plugin is connected (has valid token) and get token
   const checkConnection = async (): Promise<string | null> => {
     try {
@@ -93,11 +117,12 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
       const tokens = await electrobun.rpc?.request.pluginGetStateValue({
         pluginName: PLUGIN_NAME,
         key: 'tokens',
-      }) as Array<{ token: string; status: string }> | undefined;
+      }) as StoredToken[] | undefined;
 
       console.log('[WebflowSlate] tokens from state:', tokens);
 
       if (tokens && Array.isArray(tokens)) {
+        setAllTokens(tokens.filter(t => t.status === 'valid'));
         const validToken = tokens.find((t) => t.status === 'valid');
         if (validToken?.token) {
           setConnected(true);
@@ -116,6 +141,26 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
       console.error("Failed to check Webflow connection:", e);
     }
     return null;
+  };
+
+  // Get a workspace-scoped token (for Code Components)
+  const getWorkspaceToken = (): string | null => {
+    const tokens = allTokens();
+    // Prefer workspace or oauth tokens (they have workspace access)
+    const workspaceToken = tokens.find(t => t.type === 'workspace' || t.type === 'oauth');
+    return workspaceToken?.token || null;
+  };
+
+  // Get a site-scoped token (for DevLink)
+  const getSiteToken = (siteId?: string): string | null => {
+    const tokens = allTokens();
+    // If siteId specified, try to find a token for that site
+    if (siteId) {
+      const siteToken = tokens.find(t => t.type === 'site' && t.siteId === siteId);
+      if (siteToken) return siteToken.token;
+    }
+    // Otherwise return any valid token (oauth/workspace tokens can access sites too)
+    return tokens[0]?.token || null;
   };
 
   // Load sites from plugin state (fetched by the plugin from main process)
@@ -236,6 +281,13 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
   };
 
   // Run a terminal command in the project directory
+  // Result type from execSpawnSync RPC
+  interface ExecResult {
+    stdout: string;
+    stderr: string;
+    exitCode: number | null;
+  }
+
   const runCommand = async (cmd: string, args: string[]): Promise<string> => {
     const cwd = getProjectRoot();
     if (!cwd) {
@@ -247,10 +299,23 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
         cmd,
         args,
         opts: { cwd },
-      });
+      }) as ExecResult | string;
 
-      const output = typeof result === "string" ? result : JSON.stringify(result);
+      // Handle both old string format and new object format
+      if (typeof result === "string") {
+        setCommandOutput(result);
+        return result;
+      }
+
+      // Combine stdout and stderr for display
+      const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
       setCommandOutput(output);
+
+      // If command failed, also set error
+      if (result.exitCode !== 0 && result.stderr) {
+        setError(result.stderr);
+      }
+
       return output;
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
@@ -271,10 +336,23 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
         cmd,
         args,
         opts: { cwd, env },
-      });
+      }) as ExecResult | string;
 
-      const output = typeof result === "string" ? result : JSON.stringify(result);
+      // Handle both old string format and new object format
+      if (typeof result === "string") {
+        setCommandOutput(result);
+        return result;
+      }
+
+      // Combine stdout and stderr for display
+      const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
       setCommandOutput(output);
+
+      // If command failed, also set error
+      if (result.exitCode !== 0 && result.stderr) {
+        setError(result.stderr);
+      }
+
       return output;
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
@@ -325,6 +403,9 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
       ], {
         WEBFLOW_SITE_ID: siteId,
         WEBFLOW_SITE_API_TOKEN: token,
+        // Disable telemetry prompt
+        WEBFLOW_TELEMETRY: 'false',
+        DO_NOT_TRACK: '1',
       });
 
       // Check if sync was successful - look for ERROR: prefix which indicates actual errors
@@ -367,9 +448,12 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
             cmd: "ls",
             args: ["-1", fullPath],
             opts: {},
-          });
-          if (lsResult && typeof lsResult === 'string') {
-            const allFiles = lsResult.split('\n').filter(Boolean);
+          }) as ExecResult | string | undefined;
+
+          // Handle both old string format and new object format
+          const lsOutput = typeof lsResult === 'string' ? lsResult : lsResult?.stdout || '';
+          if (lsOutput) {
+            const allFiles = lsOutput.split('\n').filter(Boolean);
             localFiles = allFiles.filter(f =>
               f.endsWith('.tsx') || f.endsWith('.jsx') || f.endsWith('.js')
             );
@@ -452,26 +536,142 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
 
   // Code Components: Share library to Webflow
   const shareLibrary = async () => {
-    await runCommand("bun", ["x", "webflow", "library", "share"]);
+    setShareRunning(true);
+    setCommandOutput(null);
+    setError(null);
+    try {
+      // Code Components requires a workspace-scoped token
+      const workspaceToken = getWorkspaceToken();
+
+      if (!workspaceToken) {
+        setError("No workspace token found. Code Components requires a workspace-scoped OAuth token.\n\nGo to Settings → Webflow and click 'Connect with Webflow' to authenticate with workspace access.");
+        return;
+      }
+
+      const envVars: Record<string, string> = {
+        // Disable telemetry prompt
+        WEBFLOW_TELEMETRY: 'false',
+        DO_NOT_TRACK: '1',
+        // Workspace token for Code Components
+        WEBFLOW_API_TOKEN: workspaceToken,
+      };
+
+      // Use bunx which auto-installs if needed (npx requires npm install first)
+      await runCommandWithEnv("bunx", ["@webflow/webflow-cli", "library", "share", "--no-input"], envVars);
+    } finally {
+      setShareRunning(false);
+    }
   };
 
-  // Code Components: Start dev server
+  // Code Components: Dev server state
+  const [devServerTerminalId, setDevServerTerminalId] = createSignal<string | null>(null);
+  const [devServerRunning, setDevServerRunning] = createSignal(false);
+
+  // Start dev server (bundle + serve)
   const startDevServer = async () => {
-    await runCommand("bun", ["x", "webflow", "library", "dev"]);
+    setBundleRunning(true);
+    setCommandOutput(null);
+    setError(null);
+    try {
+      const cwd = getProjectRoot();
+      if (!cwd) {
+        throw new Error("Could not determine project directory");
+      }
+
+      // Bundle library for local testing
+      setCommandOutput("Bundling components...\n");
+      await runCommandWithEnv("bunx", [
+        "@webflow/webflow-cli", "library", "bundle",
+        "--public-path", "http://localhost:4000/",
+        "--dev"
+      ], {
+        WEBFLOW_TELEMETRY: 'false',
+        DO_NOT_TRACK: '1',
+      });
+
+      // Create a terminal and start the server
+      setCommandOutput((prev) => (prev || "") + "\nStarting dev server...\n");
+      const terminalId = await electrobun.rpc?.request.createTerminal({ cwd });
+      if (terminalId) {
+        setDevServerTerminalId(terminalId);
+        // Send the serve command to the terminal
+        await electrobun.rpc?.request.writeToTerminal({
+          terminalId,
+          data: "bunx serve -l 4000 -s dist\n"
+        });
+        setDevServerRunning(true);
+        setCommandOutput((prev) => (prev || "") + "\n✓ Dev server running at http://localhost:4000\n\nTo preview in Webflow Designer:\n1. Open your site in Webflow Designer\n2. Go to Apps panel → Code Components\n3. Click 'Load dev library' → http://localhost:4000\n");
+      }
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      setError(errMsg);
+    } finally {
+      setBundleRunning(false);
+    }
+  };
+
+  // Stop dev server
+  const stopDevServer = async () => {
+    const terminalId = devServerTerminalId();
+    if (terminalId) {
+      // Send Ctrl+C to stop the server
+      await electrobun.rpc?.request.writeToTerminal({
+        terminalId,
+        data: "\x03" // Ctrl+C
+      });
+      // Kill the terminal
+      await electrobun.rpc?.request.killTerminal({ terminalId });
+      setDevServerTerminalId(null);
+      setDevServerRunning(false);
+      setCommandOutput("Dev server stopped.\n");
+    }
+  };
+
+  // Toggle dev server
+  const toggleDevServer = async () => {
+    if (devServerRunning()) {
+      await stopDevServer();
+    } else {
+      await startDevServer();
+    }
+  };
+
+  // Open Webflow Dashboard
+  const openWebflowDashboard = () => {
+    openNewTabForNode('__COLAB_INTERNAL__/web', false, { focusNewTab: true, url: "https://webflow.com/dashboard" });
   };
 
   // Cloud: Deploy to Webflow Cloud
   const deployToCloud = async () => {
-    await runCommand("bun", ["x", "webflow", "cloud", "deploy"]);
+    setDeployRunning(true);
+    setCommandOutput(null);
+    setError(null);
+    try {
+      const token = authToken();
+      const envVars: Record<string, string> = {
+        WEBFLOW_TELEMETRY: 'false',
+        DO_NOT_TRACK: '1',
+      };
+      if (token) {
+        envVars.WEBFLOW_API_TOKEN = token;
+      }
+      // Use bunx which auto-installs if needed
+      await runCommandWithEnv("bunx", ["@webflow/webflow-cli", "cloud", "deploy"], envVars);
+    } finally {
+      setDeployRunning(false);
+    }
   };
 
   // Cloud: Start local dev server
   const startLocalDev = async () => {
-    const cfg = config() as CloudProjectConfig;
-    if (cfg?.framework === "astro") {
+    setDevRunning(true);
+    setCommandOutput(null);
+    setError(null);
+    try {
+      // For local dev, just use bun run dev (framework's dev server)
       await runCommand("bun", ["run", "dev"]);
-    } else if (cfg?.framework === "nextjs") {
-      await runCommand("bun", ["run", "dev"]);
+    } finally {
+      setDevRunning(false);
     }
   };
 
@@ -557,8 +757,11 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
               connected={connected()}
               onOpenSettings={openSettings}
               onShare={shareLibrary}
-              onDev={startDevServer}
-              commandRunning={commandRunning()}
+              onToggleDevServer={toggleDevServer}
+              onOpenDashboard={openWebflowDashboard}
+              shareRunning={shareRunning()}
+              bundleRunning={bundleRunning()}
+              devServerRunning={devServerRunning()}
               commandOutput={commandOutput()}
               error={error()}
               nodePath={props.node?.path}
@@ -573,7 +776,8 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
               onOpenSettings={openSettings}
               onDeploy={deployToCloud}
               onDev={startLocalDev}
-              commandRunning={commandRunning()}
+              deployRunning={deployRunning()}
+              devRunning={devRunning()}
               commandOutput={commandOutput()}
               error={error()}
               nodePath={props.node?.path}
@@ -640,6 +844,9 @@ const DevLinkSlateContent = (props: {
   // Get current site info from sites list
   const currentSite = () => props.sites.find(s => s.id === props.config?.siteId);
 
+  // Check if we need to show the site selection UI (no site selected yet)
+  const needsSiteSelection = () => props.connected && props.config && !props.config.siteId;
+
   return (
     <div>
       <div
@@ -705,8 +912,96 @@ const DevLinkSlateContent = (props: {
         <ConnectPrompt onOpenSettings={props.onOpenSettings} />
       </Show>
 
-      <Show when={props.connected && props.config}>
-        {/* Site Selector */}
+      {/* Site Selection UI - shown when connected but no site selected */}
+      <Show when={needsSiteSelection()}>
+        <div
+          style={{
+            background: "#2a2a2a",
+            border: "1px solid #4353ff",
+            "border-radius": "8px",
+            padding: "24px",
+            "margin-bottom": "16px",
+          }}
+        >
+          <div style={{ "text-align": "center", "margin-bottom": "16px" }}>
+            <div style={{ "font-size": "32px", "margin-bottom": "8px" }}>🌐</div>
+            <h3 style={{ margin: "0 0 8px 0", color: "#fff", "font-size": "18px", "font-weight": 500 }}>
+              Select a Webflow Site
+            </h3>
+            <p style={{ margin: 0, color: "#888", "font-size": "13px" }}>
+              Choose which site to sync components from
+            </p>
+          </div>
+
+          <Show when={props.sites.length === 0}>
+            <div style={{ "text-align": "center", color: "#888", padding: "20px" }}>
+              <p style={{ margin: "0 0 12px 0" }}>Loading your sites...</p>
+              <p style={{ margin: 0, "font-size": "12px" }}>
+                If this takes too long, try refreshing or check your connection in Settings.
+              </p>
+            </div>
+          </Show>
+
+          <Show when={props.sites.length > 0}>
+            <div style={{ display: "flex", "flex-direction": "column", gap: "8px" }}>
+              <For each={props.sites}>
+                {(site) => (
+                  <button
+                    onClick={() => props.onChangeSite(site)}
+                    style={{
+                      background: "#1e1e1e",
+                      border: "1px solid #333",
+                      "border-radius": "8px",
+                      padding: "16px",
+                      "text-align": "left",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#333";
+                      e.currentTarget.style.borderColor = "#4353ff";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "#1e1e1e";
+                      e.currentTarget.style.borderColor = "#333";
+                    }}
+                  >
+                    <div style={{ display: "flex", "align-items": "center", gap: "12px" }}>
+                      <div
+                        style={{
+                          width: "40px",
+                          height: "40px",
+                          background: "#4353ff",
+                          "border-radius": "8px",
+                          display: "flex",
+                          "align-items": "center",
+                          "justify-content": "center",
+                          "font-size": "18px",
+                        }}
+                      >
+                        🌐
+                      </div>
+                      <div>
+                        <div style={{ "font-size": "14px", "font-weight": 500, color: "#fff" }}>
+                          {site.displayName}
+                        </div>
+                        <Show when={site.shortName && site.shortName !== site.displayName}>
+                          <div style={{ "font-size": "12px", color: "#666", "font-family": "monospace" }}>
+                            {site.shortName}
+                          </div>
+                        </Show>
+                      </div>
+                    </div>
+                  </button>
+                )}
+              </For>
+            </div>
+          </Show>
+        </div>
+      </Show>
+
+      <Show when={props.connected && props.config && props.config.siteId}>
+        {/* Site Selector - shown when site is already selected */}
         <div
           style={{
             background: "#2a2a2a",
@@ -870,8 +1165,11 @@ const CodeComponentsSlateContent = (props: {
   connected: boolean;
   onOpenSettings: () => void;
   onShare: () => Promise<void>;
-  onDev: () => Promise<void>;
-  commandRunning: boolean;
+  onToggleDevServer: () => Promise<void>;
+  onOpenDashboard: () => void;
+  shareRunning: boolean;
+  bundleRunning: boolean;
+  devServerRunning: boolean;
   commandOutput: string | null;
   error: string | null;
   nodePath?: string;
@@ -909,7 +1207,7 @@ const CodeComponentsSlateContent = (props: {
               color: "#fff",
             }}
           >
-            {props.config?.name || "Code Components"}
+            {props.config?.library?.name || props.config?.name || "Code Components"}
           </h1>
           <p
             style={{
@@ -957,14 +1255,16 @@ const CodeComponentsSlateContent = (props: {
             Library Info
           </h3>
 
-          <ConfigField label="Name" value={props.config?.name} />
-          <ConfigField label="Version" value={props.config?.version} />
+          <ConfigField label="Name" value={props.config?.library?.name || props.config?.name} />
+          <Show when={props.config?.version}>
+            <ConfigField label="Version" value={props.config?.version} />
+          </Show>
           <div style={{ "margin-top": "12px" }}>
             <label style={{ "font-size": "12px", color: "#888", display: "block", "margin-bottom": "8px" }}>
-              Components ({props.config?.components?.length || 0})
+              Components ({(props.config?.library?.components || props.config?.components)?.length || 0})
             </label>
             <div style={{ display: "flex", gap: "8px", "flex-wrap": "wrap" }}>
-              <For each={props.config?.components || []}>
+              <For each={props.config?.library?.components || props.config?.components || []}>
                 {(component) => (
                   <span
                     style={{
@@ -989,15 +1289,21 @@ const CodeComponentsSlateContent = (props: {
             label="Share Library"
             description="Publish to Webflow"
             onClick={props.onShare}
-            loading={props.commandRunning}
+            loading={props.shareRunning}
             primary
           />
           <ActionButton
-            icon="▶"
-            label="Dev Server"
-            description="Test components locally"
-            onClick={props.onDev}
-            loading={props.commandRunning}
+            icon={props.devServerRunning ? "⏹" : "▶"}
+            label={props.devServerRunning ? "Stop Server" : "Dev Server"}
+            description={props.devServerRunning ? "Running on :4000" : "Bundle & serve"}
+            onClick={props.onToggleDevServer}
+            loading={props.bundleRunning}
+          />
+          <ActionButton
+            icon="🌐"
+            label="Open Dashboard"
+            description="Open Webflow"
+            onClick={props.onOpenDashboard}
           />
           <ActionButton
             icon="⚙"
@@ -1020,7 +1326,8 @@ const CloudSlateContent = (props: {
   onOpenSettings: () => void;
   onDeploy: () => Promise<void>;
   onDev: () => Promise<void>;
-  commandRunning: boolean;
+  deployRunning: boolean;
+  devRunning: boolean;
   commandOutput: string | null;
   error: string | null;
   nodePath?: string;
@@ -1145,7 +1452,7 @@ const CloudSlateContent = (props: {
             label="Deploy"
             description="Push to Webflow Cloud"
             onClick={props.onDeploy}
-            loading={props.commandRunning}
+            loading={props.deployRunning}
             primary
           />
           <ActionButton
@@ -1153,7 +1460,7 @@ const CloudSlateContent = (props: {
             label="Dev Server"
             description="Run locally"
             onClick={props.onDev}
-            loading={props.commandRunning}
+            loading={props.devRunning}
           />
           <ActionButton
             icon="⚙"

@@ -8,8 +8,8 @@ export const isInstalled = () => {
 
 let _version: string = "";
 export const getVersion = (forceRefetch = false) => {
-  const versionResult = execSpawnSync(BUN_BINARY_PATH, ["--version"]) || "";
-  return versionResult;
+  const result = execSpawnSync(BUN_BINARY_PATH, ["--version"]);
+  return result.stdout || "";
 };
 
 export const install = () => {

@@ -220,6 +220,9 @@ async function handlePull(
         env: {
           ...process.env,
           WEBFLOW_SITE_API_TOKEN: validToken.token,
+          // Disable telemetry prompt - we're running non-interactively
+          WEBFLOW_TELEMETRY: 'false',
+          DO_NOT_TRACK: '1',
         },
       });
 

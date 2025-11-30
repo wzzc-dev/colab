@@ -278,8 +278,11 @@ export async function activate(api: PluginAPI): Promise<void> {
       api.log.info('Step 3: Running auth command...');
 
       // Use expect to handle interactive prompts - auto-select first site
+      // Set WEBFLOW_TELEMETRY=false and DO_NOT_TRACK=1 to skip telemetry consent prompt
       const expectScript = `
         cd "${authDir}"
+        export WEBFLOW_TELEMETRY=false
+        export DO_NOT_TRACK=1
         expect -c '
           set timeout 120
           spawn npx -y @webflow/webflow-cli auth login --force
@@ -585,19 +588,17 @@ export async function activate(api: PluginAPI): Promise<void> {
           return;
         }
 
-        // For now, use the first site - TODO: add site picker UI
-        const site = sites[0];
+        // Store sites in plugin state for the slate UI to use
+        api.state.set('sites', sites);
 
-        // Create .webflowrc.json with auth token
+        // Create .webflowrc.json without siteId - user will select site in the slate UI
         const config = {
-          siteId: site.id,
-          siteName: site.displayName,
-          authToken: validToken.token,
+          // siteId and siteName will be set when user selects a site in the DevLink slate
           componentsPath: './devlink',
         };
         writeFileSync(configPath, JSON.stringify(config, null, 2));
 
-        // Add .webflowrc.json to .gitignore (contains auth token)
+        // Add .webflowrc.json to .gitignore (will contain auth token once site is selected)
         const gitignorePath = join(targetDir, '.gitignore');
         try {
           const { readFileSync: readFs } = await import('fs');
@@ -635,8 +636,8 @@ export async function activate(api: PluginAPI): Promise<void> {
           }
         }
 
-        api.notifications.showInfo(`DevLink initialized for "${site.displayName}"! Run 'bun install' then right-click to sync.`);
-        api.log.info(`DevLink initialized for site: ${site.displayName} (${site.id})`);
+        api.notifications.showInfo(`DevLink initialized! Click on .webflowrc.json to select a Webflow site.`);
+        api.log.info(`DevLink initialized in ${targetDir}`);
 
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
@@ -700,14 +701,22 @@ export async function activate(api: PluginAPI): Promise<void> {
       api.notifications.showInfo(`Syncing components from "${config.siteName || 'Webflow'}"...`);
 
       try {
-        const bunPath = process.env.BUN_BINARY_PATH || 'bun';
+        // Use bundled bun from Colab
+        const bunPath = api.paths.bun;
 
         await new Promise<void>((resolve, reject) => {
           // Token is read from .webflowrc.json by the CLI
           const proc = spawn(bunPath, ['run', 'webflow', 'devlink', 'sync'], {
             cwd: searchDir,
             stdio: ['ignore', 'pipe', 'pipe'],
-            env: process.env,
+            env: {
+              ...process.env,
+              // Use our stored token instead of relying on config file
+              WEBFLOW_SITE_API_TOKEN: validToken.token,
+              // Disable telemetry prompt - we're running non-interactively
+              WEBFLOW_TELEMETRY: 'false',
+              DO_NOT_TRACK: '1',
+            },
           });
 
           let output = '';
@@ -745,6 +754,297 @@ export async function activate(api: PluginAPI): Promise<void> {
     }
   );
   disposables.push(syncMenuDisposable);
+
+  // Context menu: Initialize Code Components library
+  const initComponentsMenuDisposable = api.contextMenu.registerItem(
+    {
+      id: 'webflow-init-components',
+      label: 'Initialize Webflow Code Components',
+      context: 'fileTree',
+    },
+    async (ctx) => {
+      if (!ctx.filePath) return;
+
+      const { existsSync, writeFileSync, mkdirSync, readFileSync } = await import('fs');
+      const { statSync } = await import('fs');
+      const { join, dirname, basename } = await import('path');
+
+      // Get the directory path
+      let targetDir = ctx.filePath;
+      try {
+        const stat = statSync(ctx.filePath);
+        if (!stat.isDirectory()) {
+          targetDir = dirname(ctx.filePath);
+        }
+      } catch {
+        targetDir = dirname(ctx.filePath);
+      }
+
+      // Check if already initialized
+      const configPath = join(targetDir, 'webflow.json');
+      if (existsSync(configPath)) {
+        api.notifications.showWarning('Code Components library already initialized in this directory');
+        return;
+      }
+
+      // Check authentication
+      const tokens = api.state.get<WebflowToken[]>('tokens') || [];
+      const validToken = tokens.find(t => t.status === 'valid');
+
+      if (!validToken) {
+        api.notifications.showError('Not connected to Webflow. Open Settings → Webflow to connect.');
+        return;
+      }
+
+      // Create webflow.json config file with the correct "library" structure
+      // Sanitize project name - remove hyphens and special chars (causes Module Federation errors)
+      const rawProjectName = basename(targetDir);
+      const projectName = rawProjectName
+        .replace(/[^a-zA-Z0-9]/g, ' ')  // Replace special chars with spaces
+        .split(' ')
+        .filter(Boolean)
+        .map((word, i) => i === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join('');  // camelCase
+
+      const config = {
+        library: {
+          name: projectName || 'myLibrary',
+          // Glob pattern for component files - users should create .webflow.tsx files
+          components: ["./src/components/**/*.webflow.{js,ts,tsx}"],
+        },
+      };
+      writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+      // Create src/components directory structure
+      const componentsDir = join(targetDir, 'src', 'components');
+      if (!existsSync(componentsDir)) {
+        mkdirSync(componentsDir, { recursive: true });
+      }
+
+      // Create an example React component file
+      const exampleReactPath = join(componentsDir, 'ExampleButton.tsx');
+      if (!existsSync(exampleReactPath)) {
+        const exampleReact = `import React from 'react';
+
+// Example React Component for Webflow Code Components
+// See: https://developers.webflow.com/code-components
+
+interface ExampleButtonProps {
+  label?: string;
+  variant?: 'primary' | 'secondary';
+}
+
+export const ExampleButton: React.FC<ExampleButtonProps> = ({
+  label = 'Click me',
+  variant = 'primary',
+}) => {
+  return (
+    <button
+      style={{
+        padding: '12px 24px',
+        borderRadius: '8px',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: '14px',
+        fontWeight: 600,
+        backgroundColor: variant === 'primary' ? '#4353ff' : '#e5e5e5',
+        color: variant === 'primary' ? '#fff' : '#333',
+      }}
+    >
+      {label}
+    </button>
+  );
+};
+`;
+        writeFileSync(exampleReactPath, exampleReact);
+      }
+
+      // Create the Webflow component declaration file
+      const exampleComponentPath = join(componentsDir, 'ExampleButton.webflow.tsx');
+      if (!existsSync(exampleComponentPath)) {
+        const exampleComponent = `import { ExampleButton } from './ExampleButton';
+import { props } from '@webflow/data-types';
+import { declareComponent } from '@webflow/react';
+
+// Webflow Code Component declaration
+// This maps the React component to Webflow with prop controls
+
+export default declareComponent(ExampleButton, {
+  name: 'ExampleButton',
+  description: 'A customizable button component',
+  props: {
+    label: props.Text({
+      name: 'Label',
+      defaultValue: 'Click me',
+    }),
+    variant: props.Variant({
+      name: 'Variant',
+      options: ['primary', 'secondary'],
+      defaultValue: 'primary',
+    }),
+  },
+});
+`;
+        writeFileSync(exampleComponentPath, exampleComponent);
+      }
+
+      // Update or create package.json
+      const packageJsonPath = join(targetDir, 'package.json');
+      let packageJson: Record<string, unknown> = {};
+      if (existsSync(packageJsonPath)) {
+        packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+      } else {
+        packageJson = {
+          name: projectName,
+          version: '1.0.0',
+          type: 'module',
+        };
+      }
+
+      packageJson.dependencies = {
+        ...(packageJson.dependencies as Record<string, string> || {}),
+        'react': '^18.2.0',
+        'react-dom': '^18.2.0',
+        '@webflow/react': '^1.0.0',
+        '@webflow/data-types': '^1.0.0',
+      };
+
+      packageJson.devDependencies = {
+        ...(packageJson.devDependencies as Record<string, string> || {}),
+        '@webflow/webflow-cli': '^1.1.1',
+        '@types/react': '^18.2.0',
+        'typescript': '^5.0.0',
+      };
+
+      packageJson.scripts = {
+        ...(packageJson.scripts as Record<string, string> || {}),
+        'webflow:bundle': 'webflow library bundle --public-path http://localhost:4000/',
+        'webflow:share': 'webflow library share',
+      };
+
+      writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+      // Run bun install to install dependencies
+      api.notifications.showInfo('Installing dependencies...');
+      try {
+        const { spawnSync } = await import('child_process');
+        const installResult = spawnSync(api.paths.bun, ['install'], {
+          cwd: targetDir,
+          env: {
+            ...process.env,
+            CI: 'true', // Skip interactive prompts
+          },
+        });
+        if (installResult.status !== 0) {
+          api.log.warn(`bun install exited with status ${installResult.status}`);
+          if (installResult.stderr) {
+            api.log.warn(`bun install stderr: ${installResult.stderr.toString()}`);
+          }
+        }
+      } catch (err) {
+        api.log.warn(`Failed to run bun install: ${err}`);
+      }
+
+      api.notifications.showInfo(`Code Components library initialized! Click on webflow.json to manage.`);
+      api.log.info(`Code Components library initialized in ${targetDir}`);
+    }
+  );
+  disposables.push(initComponentsMenuDisposable);
+
+  // Context menu: Initialize Webflow Cloud App
+  const initCloudMenuDisposable = api.contextMenu.registerItem(
+    {
+      id: 'webflow-init-cloud',
+      label: 'Initialize Webflow Cloud App',
+      context: 'fileTree',
+    },
+    async (ctx) => {
+      if (!ctx.filePath) return;
+
+      const { existsSync, writeFileSync, mkdirSync, readFileSync } = await import('fs');
+      const { statSync } = await import('fs');
+      const { join, dirname, basename } = await import('path');
+
+      // Get the directory path
+      let targetDir = ctx.filePath;
+      try {
+        const stat = statSync(ctx.filePath);
+        if (!stat.isDirectory()) {
+          targetDir = dirname(ctx.filePath);
+        }
+      } catch {
+        targetDir = dirname(ctx.filePath);
+      }
+
+      // Check if already initialized
+      const configPath = join(targetDir, '.colab.json');
+      if (existsSync(configPath)) {
+        try {
+          const existing = JSON.parse(readFileSync(configPath, 'utf-8'));
+          if (existing.type === 'webflow-cloud') {
+            api.notifications.showWarning('Webflow Cloud is already initialized in this directory');
+            return;
+          }
+        } catch {
+          // Not a valid JSON, continue
+        }
+      }
+
+      // Check authentication
+      const tokens = api.state.get<WebflowToken[]>('tokens') || [];
+      const validToken = tokens.find(t => t.status === 'valid');
+
+      if (!validToken) {
+        api.notifications.showError('Not connected to Webflow. Open Settings → Webflow to connect.');
+        return;
+      }
+
+      // Create .colab.json config file for Webflow Cloud
+      const projectName = basename(targetDir);
+      const config = {
+        v: 1,
+        name: projectName,
+        type: 'webflow-cloud',
+        framework: 'astro', // Default to Astro
+        siteId: '', // Will be filled in slate UI
+        siteName: '',
+        mountPath: '/app',
+        config: {},
+      };
+      writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+      // Update or create package.json
+      const packageJsonPath = join(targetDir, 'package.json');
+      let packageJson: Record<string, unknown> = {};
+      if (existsSync(packageJsonPath)) {
+        packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+      } else {
+        packageJson = {
+          name: projectName,
+          version: '1.0.0',
+          type: 'module',
+        };
+      }
+
+      packageJson.devDependencies = {
+        ...(packageJson.devDependencies as Record<string, string> || {}),
+        '@webflow/webflow-cli': '^1.1.1',
+      };
+
+      packageJson.scripts = {
+        ...(packageJson.scripts as Record<string, string> || {}),
+        'dev': 'astro dev',
+        'build': 'astro build',
+        'webflow:deploy': 'webflow cloud deploy',
+      };
+
+      writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+      api.notifications.showInfo(`Webflow Cloud app initialized! Configure your site in the slate UI.`);
+      api.log.info(`Webflow Cloud app initialized in ${targetDir}`);
+    }
+  );
+  disposables.push(initCloudMenuDisposable);
 
   // Register keyboard shortcut for quick sync
   const keybindingDisposable = api.keybindings.register({
@@ -784,6 +1084,20 @@ export async function activate(api: PluginAPI): Promise<void> {
     component: 'WebflowDashboardSlate',
   });
   disposables.push(dashboardSlateDisposable);
+
+  // Note: Cloud slate uses .colab.json which is handled by Colab's native slate system.
+  // The context menu "Initialize Webflow Cloud App" creates .colab.json with type: webflow-cloud
+  // which is then handled by the native getSlateForNode() function.
+  // We still register the component for the PluginSlate system:
+  const cloudSlateDisposable = api.slates.register({
+    id: 'cloud',
+    name: 'Webflow Cloud',
+    description: 'Deploy apps to Webflow Cloud infrastructure',
+    icon: '☁',
+    patterns: [], // Uses .colab.json with type: webflow-cloud (handled natively)
+    component: 'WebflowCloudSlate',
+  });
+  disposables.push(cloudSlateDisposable);
 
   // Register commands
   const initCmdDisposable = api.commands.registerCommand('webflow.init', async () => {

@@ -27,10 +27,8 @@ export const getVersion = (forceRefetch = false) => {
     return null;
   }
   // comes back as v20.10.0
-  const versionResult = execSpawnSync(NODE_BINARY_PATH, ["--version"])
-    ?.toString()
-    .slice(1)
-    .trim();
+  const result = execSpawnSync(NODE_BINARY_PATH, ["--version"]);
+  const versionResult = (result.stdout || "").slice(1).trim();
   return versionResult;
 };
 

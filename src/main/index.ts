@@ -1647,9 +1647,21 @@ const createWindow = (workspaceId: string, window?: WindowConfigType, offset?: {
             throw new Error("cmd is required");
           }
 
-          const stdout = execSpawnSync(cmd, args, opts);
+          // Use bundled bun for bun/bunx commands
+          let actualCmd = cmd;
+          let actualArgs = args;
+          if (cmd === "bun" || cmd === "bunx") {
+            actualCmd = BUN_BINARY_PATH;
+            // bunx is just "bun x"
+            if (cmd === "bunx") {
+              actualArgs = ["x", ...args];
+            }
+          }
 
-          return stdout;
+          const result = execSpawnSync(actualCmd, actualArgs, opts);
+
+          // Return full result with stdout, stderr, and exitCode
+          return result;
         },
         safeTrashFileOrFolder: ({ path }) => {
           return safeTrashFileOrFolder(path);

@@ -1298,10 +1298,11 @@ export const GitSlate = ({ node }: { node?: CachedFileType }) => {
               cmd: 'git',
               args: ['checkout', '--', filePath],
               opts: { cwd: repoRootPath },
-            });
-            
+            }) as { stdout?: string; stderr?: string; exitCode?: number | null } | string | undefined;
+
             // If that fails due to unmerged file, try reset then checkout
-            if (result && result.includes && result.includes('unmerged')) {
+            const output = typeof result === 'string' ? result : (result?.stdout || result?.stderr || '');
+            if (output.includes('unmerged')) {
               // Reset the file in the index first
               await electrobun.rpc?.request.execSpawnSync({
                 cmd: 'git',
