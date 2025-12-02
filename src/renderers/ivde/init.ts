@@ -96,8 +96,6 @@ const rpc = Electroview.defineRPC<WorkspaceRPC>({
         isDir,
       }) => {
         const stateFile = state.fileCache[absolutePath];
-        // TODO: why does this fire 3 times for a single file change?
-        console.log("fileWatchEvent", absolutePath, isDelete, isAdding);
         // Force reactivity by resetting then setting (ensures change even for same file)
         setState("lastFileChange", null);
         setState("lastFileChange", absolutePath);
@@ -106,7 +104,6 @@ const rpc = Electroview.defineRPC<WorkspaceRPC>({
           // if the file isn't in the cache then there's nothing to update
           return;
         }
-        console.log({ isDelete, isAdding, absolutePath, stateFile });
         if (isDelete) {
           // destroy open tabs
           if (stateFile?.type === "file") {

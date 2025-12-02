@@ -98,6 +98,11 @@ export const watchProjectDirectories = () => {
             return;
           }
 
+          // Ignore node_modules to prevent performance issues during npm/bun install
+          if (absolutePath.includes("/node_modules/")) {
+            return;
+          }
+
           const stat = exists ? statSync(absolutePath) : null;
 
           broadcastToAllWindowsInWorkspace(workspaceId, "fileWatchEvent", {

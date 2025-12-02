@@ -1035,18 +1035,20 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
               config={config() as DevLinkConfig}
               connected={connected()}
               sites={sites()}
+              cwd={getProjectRoot() || ""}
+              siteId={(config() as DevLinkConfig)?.siteId || null}
+              siteToken={(() => {
+                const cfg = config() as DevLinkConfig | null;
+                const siteId = cfg?.siteId;
+                return siteId ? (getSiteToken(siteId) || authToken()) : null;
+              })()}
               onOpenSettings={openSettings}
-              onPull={pullComponents}
-              onCheckStatus={checkSyncStatus}
               onChangeSite={(site) => {
                 const token = authToken();
                 if (token) updateConfigSite(site, token);
               }}
               syncStatus={syncStatus()}
-              pullRunning={pullRunning()}
-              statusRunning={statusRunning()}
               lastChecked={lastChecked()}
-              commandOutput={commandOutput()}
               error={error()}
               nodePath={props.node?.path}
             />
@@ -1057,15 +1059,10 @@ export const WebflowSlate = (props: WebflowSlateProps): JSXElement => {
             <CodeComponentsSlateContent
               config={config() as CodeComponentsConfig}
               connected={connected()}
+              cwd={getProjectRoot() || ""}
               onOpenSettings={openSettings}
-              onShare={shareLibrary}
-              onToggleDevServer={toggleDevServer}
               onOpenDashboard={openWebflowDashboard}
               onConfigChange={updateCodeComponentsConfig}
-              shareRunning={shareRunning()}
-              bundleRunning={bundleRunning()}
-              devServerRunning={devServerRunning()}
-              commandOutput={commandOutput()}
               error={error()}
               nodePath={props.node?.path}
             />
@@ -1117,19 +1114,67 @@ const DevLinkSlateContent = (props: {
   config: DevLinkConfig | null;
   connected: boolean;
   sites: WebflowSite[];
+  cwd: string;
+  siteId: string | null;
+  siteToken: string | null;
   onOpenSettings: () => void;
-  onPull: () => Promise<void>;
-  onCheckStatus: () => Promise<void>;
   onChangeSite: (site: WebflowSite) => void;
   syncStatus: string;
-  pullRunning: boolean;
-  statusRunning: boolean;
   lastChecked: Date | null;
-  commandOutput: string | null;
   error: string | null;
   nodePath?: string;
 }): JSXElement => {
   const [showSitePicker, setShowSitePicker] = createSignal(false);
+  const [terminalMode, setTerminalMode] = createSignal<'none' | 'sync'>('none');
+  let terminalRef: ColabTerminalElement | null = null;
+
+  // Get the working directory
+  const getTerminalCwd = () => {
+    if (props.cwd) return props.cwd;
+    if (props.nodePath) {
+      const parts = props.nodePath.split('/');
+      parts.pop();
+      return parts.join('/');
+    }
+    return '/';
+  };
+
+  // Build command with env vars for site credentials
+  const getEnvPrefix = () => {
+    if (!props.siteId || !props.siteToken) return '';
+    return `export WEBFLOW_SITE_ID="${props.siteId}" WEBFLOW_SITE_API_TOKEN="${props.siteToken}" && clear && `;
+  };
+
+  // Start sync in terminal
+  const startSync = () => {
+    if (!props.siteId || !props.siteToken) {
+      return;
+    }
+    if (terminalMode() === 'sync' && terminalRef) {
+      terminalRef.run(`${getEnvPrefix()}bunx @webflow/webflow-cli devlink sync`);
+    } else {
+      setTerminalMode('sync');
+    }
+  };
+
+  // Stop the current terminal
+  const stopTerminal = () => {
+    if (terminalRef) {
+      terminalRef.kill();
+    }
+    setTerminalMode('none');
+    terminalRef = null;
+  };
+
+  // Called when terminal element is created
+  const onTerminalRef = (el: ColabTerminalElement) => {
+    terminalRef = el;
+    setTimeout(() => {
+      if (terminalMode() === 'sync') {
+        el.run(`${getEnvPrefix()}bunx @webflow/webflow-cli devlink sync`);
+      }
+    }, 150);
+  };
 
   // Format time as "today at 1:09pm" or just "1:09pm"
   const formatLastChecked = () => {
@@ -1434,18 +1479,11 @@ const DevLinkSlateContent = (props: {
 
         <div style={{ display: "flex", gap: "12px", "flex-wrap": "wrap", "margin-bottom": "16px" }}>
           <ActionButton
-            icon="↓"
-            label="Pull Components"
-            description="Sync latest from Webflow"
-            onClick={props.onPull}
-            loading={props.pullRunning}
-          />
-          <ActionButton
             icon="↻"
-            label="Check Status"
-            description={formatLastChecked() ? `Checked ${formatLastChecked()}` : "Verify sync status"}
-            onClick={props.onCheckStatus}
-            loading={props.statusRunning}
+            label="Sync Components"
+            description="Sync latest from Webflow"
+            onClick={startSync}
+            active={terminalMode() === 'sync'}
           />
           <ActionButton
             icon="⚙"
@@ -1467,7 +1505,74 @@ const DevLinkSlateContent = (props: {
           </Show>
         </div>
 
-        <TerminalOutputPanel output={props.commandOutput} error={props.error} />
+        {/* Error display */}
+        <Show when={props.error}>
+          <div
+            style={{
+              background: "#2a1515",
+              border: "1px solid #5c2626",
+              "border-radius": "8px",
+              padding: "12px 16px",
+              "margin-bottom": "16px",
+              color: "#f87171",
+              "font-size": "13px",
+            }}
+          >
+            {props.error}
+          </div>
+        </Show>
+
+        {/* PTY Terminal */}
+        <Show when={terminalMode() !== 'none'}>
+          <div
+            style={{
+              background: "#0a0a0a",
+              border: "1px solid #333",
+              "border-radius": "8px",
+              overflow: "hidden",
+              "margin-top": "8px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                "align-items": "center",
+                "justify-content": "space-between",
+                padding: "8px 12px",
+                "border-bottom": "1px solid #333",
+                background: "#1a1a1a",
+              }}
+            >
+              <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
+                <span style={{ color: "#4353ff" }}>↻</span>
+                <span style={{ "font-size": "12px", "font-weight": 500, color: "#fff" }}>
+                  Syncing Components
+                </span>
+              </div>
+              <button
+                onClick={stopTerminal}
+                style={{
+                  background: "#333",
+                  border: "1px solid #444",
+                  "border-radius": "4px",
+                  padding: "4px 8px",
+                  color: "#888",
+                  cursor: "pointer",
+                  "font-size": "11px",
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <div style={{ height: "300px" }}>
+              <colab-terminal
+                prop:cwd={getTerminalCwd()}
+                ref={onTerminalRef}
+                style={{ width: "100%", height: "100%" }}
+              />
+            </div>
+          </div>
+        </Show>
       </Show>
     </div>
   );
@@ -1477,18 +1582,66 @@ const DevLinkSlateContent = (props: {
 const CodeComponentsSlateContent = (props: {
   config: CodeComponentsConfig | null;
   connected: boolean;
+  cwd: string;
   onOpenSettings: () => void;
-  onShare: () => Promise<void>;
-  onToggleDevServer: () => Promise<void>;
   onOpenDashboard: () => void;
   onConfigChange: (key: string, value: string) => Promise<void>;
-  shareRunning: boolean;
-  bundleRunning: boolean;
-  devServerRunning: boolean;
-  commandOutput: string | null;
   error: string | null;
   nodePath?: string;
 }): JSXElement => {
+  const [terminalMode, setTerminalMode] = createSignal<'none' | 'share' | 'dev'>('none');
+  let terminalRef: ColabTerminalElement | null = null;
+
+  // Get the working directory
+  const getTerminalCwd = () => {
+    if (props.cwd) return props.cwd;
+    if (props.nodePath) {
+      const parts = props.nodePath.split('/');
+      parts.pop();
+      return parts.join('/');
+    }
+    return '/';
+  };
+
+  // Start share library in terminal
+  const startShare = () => {
+    if (terminalMode() === 'share' && terminalRef) {
+      terminalRef.run('bunx @webflow/webflow-cli library share');
+    } else {
+      setTerminalMode('share');
+    }
+  };
+
+  // Start dev server in terminal
+  const startDevServer = () => {
+    if (terminalMode() === 'dev' && terminalRef) {
+      terminalRef.run('bunx @webflow/webflow-cli library bundle --public-path "http://localhost:4000/" --dev && bunx serve dist -l 4000 --cors');
+    } else {
+      setTerminalMode('dev');
+    }
+  };
+
+  // Stop the current terminal
+  const stopTerminal = () => {
+    if (terminalRef) {
+      terminalRef.kill();
+    }
+    setTerminalMode('none');
+    terminalRef = null;
+  };
+
+  // Called when terminal element is created
+  const onTerminalRef = (el: ColabTerminalElement) => {
+    terminalRef = el;
+    setTimeout(() => {
+      if (terminalMode() === 'share') {
+        el.run('bunx @webflow/webflow-cli library share');
+      } else if (terminalMode() === 'dev') {
+        el.run('bunx @webflow/webflow-cli library bundle --public-path "http://localhost:4000/" --dev && bunx serve dist -l 4000 --cors');
+      }
+    }, 150);
+  };
+
   return (
     <div>
       <div
@@ -1639,16 +1792,16 @@ const CodeComponentsSlateContent = (props: {
             icon="↑"
             label="Share Library"
             description="Publish to Webflow"
-            onClick={props.onShare}
-            loading={props.shareRunning}
+            onClick={startShare}
+            active={terminalMode() === 'share'}
             primary
           />
           <ActionButton
-            icon={props.devServerRunning ? "⏹" : "▶"}
-            label={props.devServerRunning ? "Stop Server" : "Dev Server"}
-            description={props.devServerRunning ? "Running on :4000" : "Bundle & serve"}
-            onClick={props.onToggleDevServer}
-            loading={props.bundleRunning}
+            icon={terminalMode() === 'dev' ? "⏹" : "▶"}
+            label={terminalMode() === 'dev' ? "Stop Server" : "Dev Server"}
+            description={terminalMode() === 'dev' ? "Running on :4000" : "Bundle & serve"}
+            onClick={() => terminalMode() === 'dev' ? stopTerminal() : startDevServer()}
+            active={terminalMode() === 'dev'}
           />
           <ActionButton
             icon="🌐"
@@ -1664,7 +1817,76 @@ const CodeComponentsSlateContent = (props: {
           />
         </div>
 
-        <TerminalOutputPanel output={props.commandOutput} error={props.error} />
+        {/* Error display */}
+        <Show when={props.error}>
+          <div
+            style={{
+              background: "#2a1515",
+              border: "1px solid #5c2626",
+              "border-radius": "8px",
+              padding: "12px 16px",
+              "margin-bottom": "16px",
+              color: "#f87171",
+              "font-size": "13px",
+            }}
+          >
+            {props.error}
+          </div>
+        </Show>
+
+        {/* PTY Terminal */}
+        <Show when={terminalMode() !== 'none'}>
+          <div
+            style={{
+              background: "#0a0a0a",
+              border: "1px solid #333",
+              "border-radius": "8px",
+              overflow: "hidden",
+              "margin-top": "8px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                "align-items": "center",
+                "justify-content": "space-between",
+                padding: "8px 12px",
+                "border-bottom": "1px solid #333",
+                background: "#1a1a1a",
+              }}
+            >
+              <div style={{ display: "flex", "align-items": "center", gap: "8px" }}>
+                <span style={{ color: terminalMode() === 'share' ? "#a855f7" : "#60a5fa" }}>
+                  {terminalMode() === 'share' ? "↑" : "▶"}
+                </span>
+                <span style={{ "font-size": "12px", "font-weight": 500, color: "#fff" }}>
+                  {terminalMode() === 'share' ? "Sharing Library" : "Development Server"}
+                </span>
+              </div>
+              <button
+                onClick={stopTerminal}
+                style={{
+                  background: "#333",
+                  border: "1px solid #444",
+                  "border-radius": "4px",
+                  padding: "4px 8px",
+                  color: "#888",
+                  cursor: "pointer",
+                  "font-size": "11px",
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <div style={{ height: "300px" }}>
+              <colab-terminal
+                prop:cwd={getTerminalCwd()}
+                ref={onTerminalRef}
+                style={{ width: "100%", height: "100%" }}
+              />
+            </div>
+          </div>
+        </Show>
       </Show>
     </div>
   );
