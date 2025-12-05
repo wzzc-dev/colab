@@ -108,13 +108,13 @@ export async function gatherSyncableSettings(): Promise<SyncedSettings> {
   // Get installed plugins via RPC
   let plugins: SyncedSettings['plugins'] = [];
   try {
-    const pluginsResult = await (electrobun.rpc as any)?.request.pluginList?.();
+    const pluginsResult = await (electrobun.rpc as any)?.request.pluginGetInstalled?.();
     if (Array.isArray(pluginsResult)) {
       for (const plugin of pluginsResult) {
         // Get plugin settings if any
         let settings: Record<string, unknown> | undefined;
         try {
-          const settingsResult = await (electrobun.rpc as any)?.request.pluginGetSettingsValues?.(plugin.name);
+          const settingsResult = await (electrobun.rpc as any)?.request.pluginGetSettingsValues?.({ pluginName: plugin.name });
           if (settingsResult && Object.keys(settingsResult).length > 0) {
             settings = settingsResult;
           }
@@ -182,23 +182,23 @@ export async function applySyncedSettings(settings: SyncedSettings): Promise<voi
     for (const plugin of settings.plugins) {
       try {
         // Check if plugin is already installed
-        const installedPlugins = await (electrobun.rpc as any)?.request.pluginList?.();
+        const installedPlugins = await (electrobun.rpc as any)?.request.pluginGetInstalled?.();
         const isInstalled = installedPlugins?.some((p: any) => p.name === plugin.name);
 
         if (!isInstalled) {
           // Install the plugin
-          await (electrobun.rpc as any)?.request.pluginInstall?.(plugin.name, plugin.version);
+          await (electrobun.rpc as any)?.request.pluginInstall?.({ packageName: plugin.name, version: plugin.version });
         }
 
         // Apply plugin settings if any
         if (plugin.settings) {
           for (const [key, value] of Object.entries(plugin.settings)) {
-            await (electrobun.rpc as any)?.request.pluginSetSettingValue?.(plugin.name, key, value);
+            await (electrobun.rpc as any)?.request.pluginSetSettingValue?.({ pluginName: plugin.name, key, value });
           }
         }
 
         // Set enabled state
-        await (electrobun.rpc as any)?.request.pluginSetEnabled?.(plugin.name, plugin.enabled);
+        await (electrobun.rpc as any)?.request.pluginSetEnabled?.({ packageName: plugin.name, enabled: plugin.enabled });
       } catch (error) {
         console.warn(`Failed to sync plugin ${plugin.name}:`, error);
       }
