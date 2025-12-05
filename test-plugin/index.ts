@@ -1,127 +1,250 @@
 /**
- * Cat Image Replacer Plugin for Colab
+ * Electrobun Demo Plugin for Colab
  *
- * This is a test/demo plugin that demonstrates the plugin API.
- * When enabled, it replaces all images on web pages with cat pictures.
+ * A comprehensive test/demo plugin that demonstrates the FULL Colab plugin API surface.
+ * Themed with bunnies (🐰) and lightning bolts (⚡) to celebrate Electrobun!
+ *
+ * API Categories Demonstrated:
+ * ✅ Commands (registerCommand, executeCommand)
+ * ✅ Webview (registerPreloadScript)
+ * ✅ Workspace (readFile, writeFile, findFiles, exists, getWorkspaceFolders)
+ * ✅ Editor (completions, getActiveEditor, getSelection, insertText)
+ * ✅ Terminal (registerCommand, createTerminal, sendText)
+ * ✅ Shell (exec, openExternal)
+ * ✅ Notifications (showInfo, showWarning, showError)
+ * ✅ Logging (debug, info, warn, error)
+ * ✅ Git (getStatus, getBranch)
+ * ✅ Events (onFileChange, onActiveEditorChange)
+ * ✅ Status Bar (createItem, update)
+ * ✅ File Decorations (registerProvider)
+ * ✅ Context Menu (registerItem)
+ * ✅ Keybindings (register)
+ * ✅ Settings (registerSchema, get, set, onChange)
+ * ✅ State (get, set, delete, getAll)
+ * ✅ Slates (register, onMount, onUnmount, onEvent, render)
+ * ✅ Paths (bun, git, fd, rg, colabHome, plugins)
+ * ✅ UI (openUrl)
+ * ✅ Utils (getUniqueNewName)
  */
 
 import type { PluginAPI, Disposable } from '../colab/src/main/plugins/types';
 
-let catModeEnabled = false;
+let electrobunModeEnabled = false;
 const disposables: Disposable[] = [];
 
-/**
- * The preload script that will be injected into web pages
- * This runs in the webview context, not the plugin worker
- */
+// ============================================================================
+// Webview Preload Script
+// ============================================================================
+
 const preloadScript = `
 (function() {
-  console.log('🐱 Cat Replacer preload script loaded!');
+  console.log('⚡🐰 Electrobun preload script loaded!');
 
-  // Simple: wait 2 seconds then replace all images with cats
+  // Demo: Add a little electrobun badge to the page
   setTimeout(function() {
-    var images = document.querySelectorAll('img');
-    console.log('🐱 Replacing', images.length, 'images with cats...');
-
-    images.forEach(function(img, i) {
-      // Use cataas.com - Cat as a Service (reliable cat image API)
-      var catUrl = 'https://cataas.com/cat?t=' + Date.now() + '-' + i;
-
-      img.src = catUrl;
-      img.srcset = '';
-    });
-
-    console.log('🐱 Done! All images are now cats.');
-  }, 2000);
+    var badge = document.createElement('div');
+    badge.innerHTML = '⚡🐰';
+    badge.style.cssText = 'position:fixed;bottom:10px;right:10px;background:#1a1a2e;color:#fff;padding:8px 12px;border-radius:8px;font-size:20px;z-index:999999;box-shadow:0 2px 10px rgba(0,0,0,0.3);';
+    badge.title = 'Powered by Electrobun!';
+    document.body.appendChild(badge);
+    console.log('⚡ Electrobun badge added to page');
+  }, 1000);
 })();
 `;
 
-/**
- * Called when the plugin is activated
- */
+// ============================================================================
+// Main Plugin Activation
+// ============================================================================
+
 export async function activate(api: PluginAPI): Promise<void> {
-  api.log.info('Cat Image Replacer plugin activating...');
+  api.log.info('⚡🐰 Electrobun Demo Plugin activating...');
+  api.log.info(`Plugin: ${api.plugin.name} v${api.plugin.version}`);
 
-  // Register the preload script - this will be injected into all webviews
-  const preloadDisposable = api.webview.registerPreloadScript(preloadScript);
-  disposables.push(preloadDisposable);
-  api.log.info('Preload script registered for webviews');
-
-  // We need to declare flashStatus before commands can use it, so commands are registered after status bar
+  // Helper for flash messages
   let flashStatus: (message: string, duration?: number) => void = () => {};
 
-  // Register the enable command
-  const enableDisposable = api.commands.registerCommand('catReplacer.enable', async () => {
-    catModeEnabled = true;
-    api.log.info('Cat mode enabled!');
-    flashStatus('😻 CATS ENABLED! 😻', 3000);
-    return { enabled: true };
-  });
-  disposables.push(enableDisposable);
+  // --------------------------------------------------------------------------
+  // 1. WEBVIEW: Register preload script
+  // --------------------------------------------------------------------------
+  const preloadDisposable = api.webview.registerPreloadScript(preloadScript);
+  disposables.push(preloadDisposable);
+  api.log.info('✓ Webview preload script registered');
 
-  // Register the disable command
-  const disableDisposable = api.commands.registerCommand('catReplacer.disable', async () => {
-    catModeEnabled = false;
-    api.log.info('Cat mode disabled!');
-    flashStatus('😿 Cats disabled...', 3000);
+  // --------------------------------------------------------------------------
+  // 2. COMMANDS: Register various commands
+  // --------------------------------------------------------------------------
+
+  // Enable command
+  const zapDisposable = api.commands.registerCommand('electrobun.zap', async () => {
+    electrobunModeEnabled = true;
+    api.log.info('⚡ ZAP! Electrobun mode enabled!');
+    api.notifications.showInfo('⚡🐰 Electrobun mode ACTIVATED!');
+    flashStatus('⚡ ZAPPED! ⚡', 3000);
+
+    // Demo: increment activation count in state
+    const activations = (api.state.get<number>('activationCount') || 0) + 1;
+    api.state.set('activationCount', activations);
+    api.log.info(`Total activations: ${activations}`);
+
+    return { enabled: true, activations };
+  });
+  disposables.push(zapDisposable);
+
+  // Disable command
+  const restDisposable = api.commands.registerCommand('electrobun.rest', async () => {
+    electrobunModeEnabled = false;
+    api.log.info('🐰 Rest mode - Electrobun sleeping');
+    api.notifications.showInfo('🐰💤 Electrobun is resting...');
+    flashStatus('🐰 Resting...', 3000);
     return { enabled: false };
   });
-  disposables.push(disableDisposable);
+  disposables.push(restDisposable);
 
-  // Register terminal command - type "meow" in any terminal!
-  const terminalDisposable = api.terminal.registerCommand('meow', async (ctx) => {
+  // Git status command
+  const gitStatusDisposable = api.commands.registerCommand('electrobun.showGitStatus', async () => {
+    try {
+      const folders = await api.workspace.getWorkspaceFolders();
+      if (folders.length === 0) {
+        api.notifications.showWarning('No workspace folder open');
+        return;
+      }
+      const branch = await api.git.getBranch(folders[0].path);
+      const status = await api.git.getStatus(folders[0].path);
+      api.notifications.showInfo(`⚡ Branch: ${branch}`);
+      api.log.info('Git status:', status);
+      return { branch, status };
+    } catch (err) {
+      api.notifications.showError(`Git error: ${err}`);
+    }
+  });
+  disposables.push(gitStatusDisposable);
+
+  // Find files command
+  const findFilesDisposable = api.commands.registerCommand('electrobun.findFiles', async () => {
+    try {
+      const files = await api.workspace.findFiles('**/*.ts');
+      api.notifications.showInfo(`⚡ Found ${files.length} TypeScript files`);
+      api.log.info('TypeScript files:', files.slice(0, 10));
+      return { count: files.length, sample: files.slice(0, 10) };
+    } catch (err) {
+      api.notifications.showError(`Find files error: ${err}`);
+    }
+  });
+  disposables.push(findFilesDisposable);
+
+  // Shell command demo
+  const shellDisposable = api.commands.registerCommand('electrobun.runShell', async () => {
+    try {
+      const result = await api.shell.exec('echo "⚡🐰 Hello from shell!"', { timeout: 5000 });
+      api.notifications.showInfo(`Shell output: ${result.stdout.trim()}`);
+      api.log.info('Shell result:', result);
+      return result;
+    } catch (err) {
+      api.notifications.showError(`Shell error: ${err}`);
+    }
+  });
+  disposables.push(shellDisposable);
+
+  // Open docs command
+  const openDocsDisposable = api.commands.registerCommand('electrobun.openDocs', async () => {
+    api.ui.openUrl('https://electrobun.dev');
+    api.notifications.showInfo('⚡ Opening Electrobun docs...');
+  });
+  disposables.push(openDocsDisposable);
+
+  api.log.info('✓ Commands registered (6 commands)');
+
+  // --------------------------------------------------------------------------
+  // 3. TERMINAL: Register terminal commands
+  // --------------------------------------------------------------------------
+
+  // Main "zap" terminal command
+  const terminalZapDisposable = api.terminal.registerCommand('zap', async (ctx) => {
     const { args, cwd, write } = ctx;
-    const count = parseInt(args[0]) || 1;
+    const count = parseInt(args[0]) || 3;
 
-    write('\x1b[33m'); // Yellow color
-    write('🐱 Cat Plugin Terminal Command\r\n');
-    write('\x1b[0m'); // Reset color
-    write('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n\r\n');
+    write('\x1b[33m'); // Yellow
+    write('⚡🐰 Electrobun Terminal Command\r\n');
+    write('\x1b[0m');
+    write('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n\r\n');
     write(`\x1b[90mCWD: ${cwd}\x1b[0m\r\n\r\n`);
 
-    // Stream multiple meows with a delay
+    const emojis = ['⚡', '🐰', '⚡🐰', '🔌', '💡', '🚀'];
     for (let i = 0; i < count; i++) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-      const catEmojis = ['🐱', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
-      const randomCat = catEmojis[Math.floor(Math.random() * catEmojis.length)];
-      write(`${randomCat} Meow ${i + 1}!\r\n`);
+      await new Promise(resolve => setTimeout(resolve, 150));
+      const emoji = emojis[i % emojis.length];
+      write(`${emoji} Zap ${i + 1}!\r\n`);
     }
 
-    write('\r\n\x1b[32m✓ Done meowing!\x1b[0m\r\n');
+    write('\r\n\x1b[32m✓ Electrobun zapped!\x1b[0m\r\n');
   });
-  disposables.push(terminalDisposable);
+  disposables.push(terminalZapDisposable);
 
-  // Register editor completion provider - adds cat-themed console.log snippets
+  // "bunny" terminal command - shows bunny art
+  const terminalBunnyDisposable = api.terminal.registerCommand('bunny', async (ctx) => {
+    const { write } = ctx;
+    write('\x1b[35m'); // Magenta
+    write('   /)  /)\r\n');
+    write('  ( ^.^ )\r\n');
+    write('  c(")(")  \x1b[33m⚡ Electrobun!\x1b[0m\r\n\r\n');
+  });
+  disposables.push(terminalBunnyDisposable);
+
+  // "paths" terminal command - shows bundled binary paths
+  const terminalPathsDisposable = api.terminal.registerCommand('paths', async (ctx) => {
+    const { write } = ctx;
+    write('\x1b[36m⚡ Bundled Binary Paths:\x1b[0m\r\n\r\n');
+    write(`  bun:       ${api.paths.bun}\r\n`);
+    write(`  git:       ${api.paths.git}\r\n`);
+    write(`  fd:        ${api.paths.fd}\r\n`);
+    write(`  rg:        ${api.paths.rg}\r\n`);
+    write(`  colabHome: ${api.paths.colabHome}\r\n`);
+    write(`  plugins:   ${api.paths.plugins}\r\n\r\n`);
+  });
+  disposables.push(terminalPathsDisposable);
+
+  api.log.info('✓ Terminal commands registered (zap, bunny, paths)');
+
+  // --------------------------------------------------------------------------
+  // 4. EDITOR: Register completion provider
+  // --------------------------------------------------------------------------
+
   const completionDisposable = api.editor.registerCompletionProvider(
     ['typescript', 'javascript', 'typescriptreact', 'javascriptreact'],
     {
       triggerCharacters: ['.'],
       provideCompletions(ctx) {
-        // Only trigger after "console."
         if (!ctx.linePrefix.endsWith('console.')) {
           return [];
         }
 
         return [
           {
-            label: '🐱 log (cat)',
-            insertText: "log('🐱 ', $1);$0",
-            detail: 'Cat-themed console.log',
-            documentation: 'Insert a console.log with a cat emoji prefix',
+            label: '⚡ log (zap)',
+            insertText: "log('⚡ ', $1);$0",
+            detail: 'Electrobun console.log',
+            documentation: 'Insert a console.log with a lightning bolt prefix',
             kind: 'snippet',
           },
           {
-            label: '😺 meow',
-            insertText: "log('😺 Meow!', $1);$0",
-            detail: 'Log a meow',
-            documentation: 'Insert a meow log statement',
+            label: '🐰 log (bunny)',
+            insertText: "log('🐰 ', $1);$0",
+            detail: 'Bunny console.log',
+            documentation: 'Insert a console.log with a bunny prefix',
             kind: 'snippet',
           },
           {
-            label: '🙀 error (cat)',
-            insertText: "error('🙀 ', $1);$0",
-            detail: 'Cat-themed console.error',
-            documentation: 'Insert a console.error with a surprised cat',
+            label: '⚡🐰 log (electrobun)',
+            insertText: "log('⚡🐰 ', $1);$0",
+            detail: 'Full Electrobun console.log',
+            documentation: 'Insert a console.log with electrobun prefix',
+            kind: 'snippet',
+          },
+          {
+            label: '🚀 warn (launch)',
+            insertText: "warn('🚀 ', $1);$0",
+            detail: 'Launch warning',
+            documentation: 'Insert a console.warn with rocket prefix',
             kind: 'snippet',
           },
         ];
@@ -129,137 +252,269 @@ export async function activate(api: PluginAPI): Promise<void> {
     }
   );
   disposables.push(completionDisposable);
+  api.log.info('✓ Editor completion provider registered');
 
-  // Create a status bar item that shows cat mode status
+  // --------------------------------------------------------------------------
+  // 5. STATUS BAR: Create dynamic status item
+  // --------------------------------------------------------------------------
+
   const statusBarItem = api.statusBar.createItem({
-    id: 'cat-status',
-    text: '🐱 Cat Mode',
-    tooltip: 'Cat Replacer Plugin is active (Ctrl+Shift+M to activate)',
+    id: 'electrobun-status',
+    text: '⚡🐰 Electrobun',
+    tooltip: 'Electrobun Demo Plugin (Cmd+Shift+Z to zap)',
     color: '#ffcc00',
     alignment: 'right',
     priority: 100,
   });
   disposables.push(statusBarItem);
 
-  // Assign the flash function now that statusBarItem exists
   flashStatus = (message: string, duration: number = 3000) => {
     statusBarItem.update({ text: message, color: '#00ff00' });
     setTimeout(() => {
       statusBarItem.update({
-        text: catModeEnabled ? '😻 CATS!' : '🐱 Cat Mode',
-        color: catModeEnabled ? '#00ff00' : '#ffcc00'
+        text: electrobunModeEnabled ? '⚡ ZAPPED!' : '⚡🐰 Electrobun',
+        color: electrobunModeEnabled ? '#00ff00' : api.settings.get<string>('statusBarColor') || '#ffcc00',
       });
     }, duration);
   };
 
-  // Update the status bar periodically with a random cat emoji
-  const catEmojis = ['🐱', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
-  let catCount = 0;
+  // Periodic status updates
+  const emojis = ['⚡', '🐰', '⚡🐰', '🔌', '💡'];
+  let tick = 0;
   const statusInterval = setInterval(() => {
-    catCount++;
-    const randomCat = catEmojis[catCount % catEmojis.length];
+    tick++;
     const savedColor = api.settings.get<string>('statusBarColor') || '#ffcc00';
-    if (catModeEnabled) {
-      statusBarItem.update({ text: `😻 CATS! (${catCount})`, color: '#00ff00' });
+    if (electrobunModeEnabled) {
+      statusBarItem.update({ text: `⚡ ZAPPED! (${tick})`, color: '#00ff00' });
     } else {
-      statusBarItem.update({ text: `${randomCat} Cat Mode (${catCount})`, color: savedColor });
+      const emoji = emojis[tick % emojis.length];
+      statusBarItem.update({ text: `${emoji} Electrobun (${tick})`, color: savedColor });
     }
   }, 5000);
   disposables.push({ dispose: () => clearInterval(statusInterval) });
 
-  // Register file decoration provider - mark .cat files with a cat badge
+  api.log.info('✓ Status bar item created');
+
+  // --------------------------------------------------------------------------
+  // 6. FILE DECORATIONS: Mark files with badges
+  // --------------------------------------------------------------------------
+
   const decorationDisposable = api.fileDecorations.registerProvider({
     provideDecoration(filePath) {
+      // TypeScript files get a lightning bolt
       if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
         return {
-          badge: '🐱',
-          tooltip: 'TypeScript file (cat approved!)',
+          badge: '⚡',
+          badgeColor: '#ffcc00',
+          tooltip: 'TypeScript file - electrified!',
+        };
+      }
+      // JavaScript files get a bunny
+      if (filePath.endsWith('.js') || filePath.endsWith('.jsx')) {
+        return {
+          badge: '🐰',
+          tooltip: 'JavaScript file - bunny approved!',
+        };
+      }
+      // .bunny files get special treatment
+      if (filePath.endsWith('.bunny')) {
+        return {
+          badge: '⚡🐰',
+          badgeColor: '#ff6b6b',
+          tooltip: 'Electrobun file!',
         };
       }
       return undefined;
     },
   });
   disposables.push(decorationDisposable);
+  api.log.info('✓ File decoration provider registered');
 
-  // Register context menu item
+  // --------------------------------------------------------------------------
+  // 7. CONTEXT MENU: Add menu items
+  // --------------------------------------------------------------------------
+
   const contextMenuDisposable = api.contextMenu.registerItem(
     {
-      id: 'catify-file',
-      label: '🐱 Catify this file',
+      id: 'electrify-file',
+      label: '⚡ Electrify this file',
       context: 'both',
-      shortcutHint: 'Ctrl+Shift+C',
+      shortcutHint: 'Cmd+Shift+E',
     },
     async (ctx) => {
-      api.log.info(`Catify requested for: ${ctx.filePath || 'selection'}`);
-      api.notifications.showInfo(`🐱 Would catify: ${ctx.filePath || ctx.selection || 'nothing selected'}`);
+      api.log.info(`Electrify requested for: ${ctx.filePath || 'selection'}`);
+
+      // Demo: if it's a file, try to read it and show stats in status bar
+      if (ctx.filePath) {
+        try {
+          const exists = await api.workspace.exists(ctx.filePath);
+          if (exists) {
+            const content = await api.workspace.readFile(ctx.filePath);
+            const lines = content.split('\n').length;
+            const chars = content.length;
+            const fileName = ctx.filePath.split('/').pop() || 'file';
+
+            // Flash the stats in the status bar
+            flashStatus(`⚡ ${fileName}: ${lines} lines, ${chars} chars`, 4000);
+            api.log.info(`File has ${chars} characters, ${lines} lines`);
+          } else {
+            flashStatus(`⚡ File not found`, 2000);
+          }
+        } catch (err) {
+          api.log.warn(`Could not read file: ${err}`);
+          flashStatus(`⚡ Error reading file`, 2000);
+        }
+      } else if (ctx.selection) {
+        // Show selection stats
+        const chars = ctx.selection.length;
+        flashStatus(`⚡ Selection: ${chars} chars`, 3000);
+      } else {
+        flashStatus(`⚡ Nothing selected`, 2000);
+      }
     }
   );
   disposables.push(contextMenuDisposable);
 
-  // Register keyboard shortcut
+  // Context menu item to create a .bunny file
+  const createBunnyDisposable = api.contextMenu.registerItem(
+    {
+      id: 'create-bunny-file',
+      label: '🐰 Create .bunny file',
+      context: 'fileTree',
+    },
+    async (ctx) => {
+      // Get the directory path - if a file is selected, use its parent directory
+      let dirPath = ctx.filePath || '';
+
+      if (dirPath) {
+        // Use shell to check if it's a directory
+        try {
+          const result = await api.shell.exec(`test -d "${dirPath}" && echo "dir" || echo "file"`);
+          const isDir = result.stdout.trim() === 'dir';
+          if (!isDir) {
+            // It's a file, get the parent directory
+            dirPath = dirPath.substring(0, dirPath.lastIndexOf('/'));
+          }
+        } catch {
+          // If shell fails, fall back to extension check
+          if (dirPath.includes('.') && !dirPath.endsWith('/')) {
+            dirPath = dirPath.substring(0, dirPath.lastIndexOf('/'));
+          }
+        }
+      }
+
+      if (!dirPath) {
+        const folders = await api.workspace.getWorkspaceFolders();
+        if (folders.length > 0) {
+          dirPath = folders[0].path;
+        }
+      }
+
+      if (!dirPath) {
+        api.notifications.showError('No directory selected');
+        return;
+      }
+
+      // Get a unique filename
+      const fileName = api.utils.getUniqueNewName(dirPath, 'hello.bunny');
+      const filePath = `${dirPath}/${fileName}`;
+
+      // Create the file with some default content
+      const content = `🐰 Welcome to your bunny file!
+
+This is a demo of the Electrobun plugin's custom slate feature.
+Edit this content and see it rendered in the Bunny Viewer.
+
+⚡ Fun bunny facts:
+- Bunnies can hop up to 3 feet high!
+- A group of bunnies is called a fluffle.
+- Bunnies have nearly 360-degree vision.
+
+Created: ${new Date().toLocaleString()}
+`;
+
+      try {
+        await api.workspace.writeFile(filePath, content);
+        flashStatus(`🐰 Created ${fileName}`, 3000);
+        api.log.info(`Created bunny file: ${filePath}`);
+      } catch (err) {
+        api.notifications.showError(`Failed to create file: ${err}`);
+        api.log.error(`Failed to create bunny file: ${err}`);
+      }
+    }
+  );
+  disposables.push(createBunnyDisposable);
+
+  api.log.info('✓ Context menu items registered');
+
+  // --------------------------------------------------------------------------
+  // 8. KEYBINDINGS: Register keyboard shortcuts
+  // --------------------------------------------------------------------------
+
   const keybindingDisposable = api.keybindings.register({
-    key: 'cmd+shift+m',
-    command: 'catReplacer.enable',
+    key: 'cmd+shift+z',
+    command: 'electrobun.zap',
     when: 'global',
   });
   disposables.push(keybindingDisposable);
+  api.log.info('✓ Keyboard shortcut registered (Cmd+Shift+Z)');
 
-  // Register settings schema
+  // --------------------------------------------------------------------------
+  // 9. SETTINGS: Register settings schema
+  // --------------------------------------------------------------------------
+
   const settingsDisposable = api.settings.registerSchema({
-    title: '🐱 Cat Replacer Settings',
-    description: 'Configure the Cat Image Replacer plugin',
+    title: '⚡🐰 Electrobun Settings',
+    description: 'Configure the Electrobun Demo Plugin',
     fields: [
       {
-        key: 'autoEnable',
-        label: 'Auto-enable Cat Mode',
+        key: 'autoZap',
+        label: 'Auto-Zap on Load',
         type: 'boolean',
         default: false,
-        description: 'Automatically enable cat mode when the plugin loads',
+        description: 'Automatically enable electrobun mode when the plugin loads',
       },
       {
-        key: 'catService',
-        label: 'Cat Image Service',
-        type: 'select',
-        default: 'cataas',
-        description: 'Which service to use for cat images',
-        options: [
-          { label: 'Cat as a Service (cataas.com)', value: 'cataas' },
-          { label: 'The Cat API (thecatapi.com)', value: 'thecatapi' },
-          { label: 'Random Cat (random.cat)', value: 'randomcat' },
-        ],
-      },
-      {
-        key: 'replaceDelay',
-        label: 'Replace Delay (ms)',
-        type: 'number',
-        default: 2000,
-        min: 500,
-        max: 10000,
-        step: 500,
-        description: 'How long to wait before replacing images (in milliseconds)',
-      },
-      {
-        key: 'meowCount',
-        label: 'Default Meow Count',
+        key: 'zapCount',
+        label: 'Default Zap Count',
         type: 'number',
         default: 3,
         min: 1,
         max: 20,
         step: 1,
-        description: 'Default number of meows when using the meow terminal command',
+        description: 'Default number of zaps for the terminal command',
       },
       {
         key: 'statusBarColor',
         label: 'Status Bar Color',
         type: 'color',
         default: '#ffcc00',
-        description: 'Color for the cat mode status bar indicator',
+        description: 'Color for the electrobun status bar indicator',
+      },
+      {
+        key: 'bunnyStyle',
+        label: 'Bunny Style',
+        type: 'select',
+        default: 'cute',
+        description: 'Choose your preferred bunny aesthetic',
+        options: [
+          { label: '🐰 Cute', value: 'cute' },
+          { label: '🐇 Classic', value: 'classic' },
+          { label: '⚡🐰 Electrified', value: 'electrified' },
+        ],
+      },
+      {
+        key: 'secretToken',
+        label: 'Demo Secret Token',
+        type: 'secret',
+        placeholder: 'Enter a secret token (demo only)',
+        description: 'This demonstrates the secret field type - masked input',
       },
     ],
   });
   disposables.push(settingsDisposable);
 
-  // Listen for settings changes and update behavior
+  // Listen for settings changes
   const settingsChangeDisposable = api.settings.onChange((key, value) => {
     api.log.info(`Setting changed: ${key} = ${value}`);
 
@@ -267,37 +522,286 @@ export async function activate(api: PluginAPI): Promise<void> {
       statusBarItem.update({ color: value as string });
     }
 
-    if (key === 'autoEnable' && value === true && !catModeEnabled) {
-      catModeEnabled = true;
-      flashStatus('😻 Auto-enabled!', 2000);
+    if (key === 'autoZap' && value === true && !electrobunModeEnabled) {
+      electrobunModeEnabled = true;
+      flashStatus('⚡ Auto-zapped!', 2000);
     }
   });
   disposables.push(settingsChangeDisposable);
 
-  // Check if auto-enable is set
-  const autoEnable = api.settings.get<boolean>('autoEnable');
-  if (autoEnable) {
-    catModeEnabled = true;
-    statusBarItem.update({ text: '😻 CATS!', color: '#00ff00' });
+  // Check auto-zap setting
+  const autoZap = api.settings.get<boolean>('autoZap');
+  if (autoZap) {
+    electrobunModeEnabled = true;
+    statusBarItem.update({ text: '⚡ ZAPPED!', color: '#00ff00' });
   }
 
-  // Apply saved status bar color
-  const savedColor = api.settings.get<string>('statusBarColor');
-  if (savedColor && !catModeEnabled) {
-    statusBarItem.update({ color: savedColor });
-  }
+  api.log.info('✓ Settings schema registered');
 
-  api.log.info('Cat Image Replacer plugin activated! All features registered.');
+  // --------------------------------------------------------------------------
+  // 10. STATE: Demo arbitrary state storage
+  // --------------------------------------------------------------------------
+
+  // Initialize or increment load count
+  const loadCount = (api.state.get<number>('loadCount') || 0) + 1;
+  api.state.set('loadCount', loadCount);
+  api.state.set('lastLoadTime', new Date().toISOString());
+  api.state.set('bunnyFacts', [
+    'Bunnies can hop up to 3 feet high!',
+    'A group of bunnies is called a fluffle.',
+    'Bunnies have nearly 360-degree vision.',
+  ]);
+
+  api.log.info(`✓ State initialized (load #${loadCount})`);
+  api.log.info('State contents:', api.state.getAll());
+
+  // --------------------------------------------------------------------------
+  // 11. EVENTS: Subscribe to file and editor changes
+  // --------------------------------------------------------------------------
+
+  const fileChangeDisposable = api.events.onFileChange((event) => {
+    api.log.debug(`File ${event.type}: ${event.path}`);
+    // Demo: track changed files in state
+    const changedFiles = api.state.get<string[]>('changedFiles') || [];
+    if (!changedFiles.includes(event.path)) {
+      changedFiles.push(event.path);
+      if (changedFiles.length > 10) changedFiles.shift(); // Keep last 10
+      api.state.set('changedFiles', changedFiles);
+    }
+  });
+  disposables.push(fileChangeDisposable);
+
+  const editorChangeDisposable = api.events.onActiveEditorChange((editor) => {
+    if (editor) {
+      api.log.debug(`Active editor changed: ${editor.path} (${editor.languageId})`);
+    } else {
+      api.log.debug('No active editor');
+    }
+  });
+  disposables.push(editorChangeDisposable);
+
+  api.log.info('✓ Event subscriptions registered');
+
+  // --------------------------------------------------------------------------
+  // 12. SLATES: Register custom file handler for .bunny files
+  // --------------------------------------------------------------------------
+
+  const slateDisposable = api.slates.register({
+    id: 'bunny-viewer',
+    name: 'Bunny Viewer',
+    description: 'A custom viewer for .bunny files',
+    icon: '🐰',
+    patterns: ['*.bunny', '**/*.bunny'],
+  });
+  disposables.push(slateDisposable);
+
+  // Handle slate mount
+  const slateMountDisposable = api.slates.onMount('bunny-viewer', async (context) => {
+    api.log.info(`Bunny slate mounting for: ${context.filePath}`);
+
+    // Store the file path for this instance so we can access it in event handlers
+    const instances = api.state.get<Record<string, string>>('slateInstances') || {};
+    instances[context.instanceId] = context.filePath;
+    api.state.set('slateInstances', instances);
+
+    // Get the directory of the .bunny file for the terminal cwd
+    const fileDir = context.filePath.substring(0, context.filePath.lastIndexOf('/'));
+
+    // Read the file content if it exists
+    let content = '';
+    try {
+      content = await api.workspace.readFile(context.filePath);
+    } catch (err) {
+      content = '(new bunny file)';
+    }
+
+    // Escape content for HTML
+    const escapedContent = content
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // Render the slate UI with terminal
+    const html = `
+      <div style="font-family: system-ui, sans-serif; padding: 24px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100%; color: #eee;">
+        <div style="max-width: 800px; margin: 0 auto;">
+          <h1 style="color: #ffcc00; margin-bottom: 8px;">⚡🐰 Bunny File Viewer</h1>
+          <p style="color: #888; margin-bottom: 24px;">Viewing: ${context.filePath}</p>
+
+          <div style="background: #0f0f1a; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+            <pre id="file-content" style="margin: 0; white-space: pre-wrap; color: #a0a0a0;">${escapedContent || '(empty)'}</pre>
+          </div>
+
+          <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 24px;">
+            <button id="update-btn" style="background: #ffcc00; color: #000; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: transform 0.1s;">
+              ✏️ Update file
+            </button>
+            <button id="cat-btn" style="background: #e91e63; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: transform 0.1s;">
+              🐰 Cat file
+            </button>
+            <button id="top-btn" style="background: #2196F3; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: transform 0.1s;">
+              📊 Run top
+            </button>
+            <span id="status-msg" style="margin-left: 12px; color: #888; font-size: 14px;"></span>
+          </div>
+
+          <div style="margin-bottom: 24px;">
+            <h3 style="color: #ffcc00; margin-bottom: 12px;">⚡ Terminal</h3>
+            <div style="height: 300px; border-radius: 8px; overflow: hidden;">
+              <colab-terminal id="bunny-terminal" cwd="${fileDir}" style="width: 100%; height: 100%;"></colab-terminal>
+            </div>
+          </div>
+
+          <div style="padding: 16px; background: rgba(255,204,0,0.1); border-radius: 8px; border-left: 4px solid #ffcc00;">
+            <strong style="color: #ffcc00;">🐰 Bunny Fact:</strong>
+            <p style="margin: 8px 0 0 0; color: #ccc;">
+              ${(api.state.get<string[]>('bunnyFacts') || ['Bunnies are awesome!'])[Math.floor(Math.random() * 3)]}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const script = `
+      var statusMsg = getElementById('status-msg');
+      var updateBtn = getElementById('update-btn');
+      var catBtn = getElementById('cat-btn');
+      var topBtn = getElementById('top-btn');
+      var fileContent = getElementById('file-content');
+      var terminal = getElementById('bunny-terminal');
+      var filePath = '${context.filePath}';
+
+      function showStatus(msg, color) {
+        statusMsg.textContent = msg;
+        statusMsg.style.color = color || '#00ff00';
+        setTimeout(function() { statusMsg.textContent = ''; }, 3000);
+      }
+
+      function animateButton(btn) {
+        btn.style.transform = 'scale(0.95)';
+        setTimeout(function() { btn.style.transform = 'scale(1)'; }, 100);
+      }
+
+      // Wait for terminal to be ready before running commands
+      terminal.addEventListener('terminal-ready', function() {
+        console.log('Bunny terminal ready!');
+      });
+
+      updateBtn.addEventListener('click', function() {
+        animateButton(updateBtn);
+        showStatus('Updating file...', '#ffcc00');
+        // Send event to plugin to append to file using workspace API
+        window.colabSlate.sendEvent('appendToFile', { timestamp: new Date().toISOString() });
+      });
+
+      catBtn.addEventListener('click', function() {
+        animateButton(catBtn);
+        showStatus('Reading file...', '#e91e63');
+        // Use single quotes to avoid shell escaping issues
+        terminal.run("cat '" + filePath + "'");
+      });
+
+      topBtn.addEventListener('click', function() {
+        animateButton(topBtn);
+        showStatus('Running top (press q to quit)...', '#2196F3');
+        terminal.run('top');
+      });
+    `;
+
+    api.slates.render(context.instanceId, html, script);
+  });
+  disposables.push(slateMountDisposable);
+
+  // Handle slate unmount
+  const slateUnmountDisposable = api.slates.onUnmount('bunny-viewer', (instanceId) => {
+    api.log.info(`Bunny slate unmounting: ${instanceId}`);
+
+    // Clean up the stored file path
+    const instances = api.state.get<Record<string, string>>('slateInstances') || {};
+    delete instances[instanceId];
+    api.state.set('slateInstances', instances);
+  });
+  disposables.push(slateUnmountDisposable);
+
+  // Handle slate events
+  const slateEventDisposable = api.slates.onEvent('bunny-viewer', async (instanceId, eventType, payload) => {
+    api.log.info(`Bunny slate event: ${eventType}`, payload);
+
+    if (eventType === 'appendToFile') {
+      const p = payload as { timestamp: string };
+      // Get the file path from the active instance
+      const instance = api.state.get<Record<string, string>>('slateInstances') || {};
+      const filePath = instance[instanceId];
+
+      if (filePath) {
+        try {
+          // Read current content
+          let content = '';
+          try {
+            content = await api.workspace.readFile(filePath);
+          } catch {
+            content = '';
+          }
+
+          // Append new line with timestamp
+          const newLine = `\n⚡ Zapped at ${new Date(p.timestamp).toLocaleString()}`;
+          const newContent = content + newLine;
+
+          // Write back
+          await api.workspace.writeFile(filePath, newContent);
+          api.log.info(`Appended to file: ${filePath}`);
+
+          // Re-render the slate with updated content
+          const escapedContent = newContent
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+          // Send a message to update just the file preview (we'd need to re-render for this)
+          // For now, just log success
+          api.log.info('File updated successfully!');
+        } catch (err) {
+          api.log.error(`Failed to append to file: ${err}`);
+        }
+      }
+    }
+  });
+  disposables.push(slateEventDisposable);
+
+  api.log.info('✓ Slate registered for .bunny files');
+
+  // --------------------------------------------------------------------------
+  // 13. PATHS: Log available paths (for demo purposes)
+  // --------------------------------------------------------------------------
+
+  api.log.info('Bundled paths available:', {
+    bun: api.paths.bun,
+    git: api.paths.git,
+    fd: api.paths.fd,
+    rg: api.paths.rg,
+    colabHome: api.paths.colabHome,
+    plugins: api.paths.plugins,
+  });
+
+  // --------------------------------------------------------------------------
+  // Done!
+  // --------------------------------------------------------------------------
+
+  api.log.info('⚡🐰 Electrobun Demo Plugin activated! All features registered.');
+  api.log.info('Try these commands:');
+  api.log.info('  - Terminal: zap, bunny, paths');
+  api.log.info('  - Keyboard: Cmd+Shift+Z');
+  api.log.info('  - Create a .bunny file to see the custom slate');
 }
 
-/**
- * Called when the plugin is deactivated
- */
+// ============================================================================
+// Plugin Deactivation
+// ============================================================================
+
 export async function deactivate(): Promise<void> {
-  // Clean up all disposables
   for (const disposable of disposables) {
     disposable.dispose();
   }
   disposables.length = 0;
-  catModeEnabled = false;
+  electrobunModeEnabled = false;
 }

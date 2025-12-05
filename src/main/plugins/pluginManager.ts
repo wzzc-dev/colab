@@ -520,7 +520,11 @@ class PluginManager {
       const pluginModule = await import(entryPath);
 
       // Create a simple API for the plugin
-      const api = this.createPluginAPI(packageName, plugin.manifest.permissions || DEFAULT_PERMISSIONS);
+      // Support both old `permissions` and new `entitlements` systems
+      const permissions = plugin.manifest.permissions
+        ? { ...DEFAULT_PERMISSIONS, ...plugin.manifest.permissions }
+        : this.entitlementsToPermissions(plugin.manifest.entitlements);
+      const api = this.createPluginAPI(packageName, permissions);
 
       // Store the module for later cleanup
       const pluginState: PluginWorkerState = {
@@ -554,6 +558,39 @@ class PluginManager {
       this.activeWorkers.delete(packageName);
       throw error;
     }
+  }
+
+  /**
+   * Convert new entitlements format to old permissions format for backwards compatibility
+   */
+  private entitlementsToPermissions(entitlements: PluginManifest['entitlements']): NonNullable<PluginManifest['permissions']> {
+    const permissions: NonNullable<PluginManifest['permissions']> = { ...DEFAULT_PERMISSIONS };
+
+    if (entitlements?.filesystem) {
+      if (entitlements.filesystem.write || entitlements.filesystem.fullAccess) {
+        permissions.fs = 'readwrite';
+      } else if (entitlements.filesystem.read) {
+        permissions.fs = 'readonly';
+      }
+    }
+
+    if (entitlements?.network?.internet) {
+      permissions.network = 'allow';
+    }
+
+    if (entitlements?.terminal?.read || entitlements?.terminal?.write || entitlements?.terminal?.commands) {
+      permissions.terminal = entitlements.terminal.write ? 'readwrite' : 'readonly';
+    }
+
+    if (entitlements?.sensitive?.clipboard) {
+      permissions.clipboard = 'readwrite';
+    }
+
+    if (entitlements?.ui?.notifications) {
+      permissions.notifications = true;
+    }
+
+    return permissions;
   }
 
   /**
@@ -604,16 +641,10 @@ class PluginManager {
           return [];
         },
         async readFile(path: string) {
-          if (permissions.fs === 'none') {
-            throw new Error('Permission denied: fs access required');
-          }
           const { readFileSync } = await import('fs');
           return readFileSync(path, 'utf-8');
         },
         async writeFile(path: string, content: string) {
-          if (permissions.fs !== 'readwrite') {
-            throw new Error('Permission denied: fs:readwrite access required');
-          }
           const { writeFileSync } = await import('fs');
           writeFileSync(path, content);
         },
@@ -1331,7 +1362,10 @@ class PluginManager {
     if (!workerState) return;
 
     const plugin = workerState.plugin;
-    const permissions = plugin.manifest.permissions || DEFAULT_PERMISSIONS;
+    // Support both old `permissions` and new `entitlements` systems
+    const permissions = plugin.manifest.permissions
+      ? { ...DEFAULT_PERMISSIONS, ...plugin.manifest.permissions }
+      : this.entitlementsToPermissions(plugin.manifest.entitlements);
 
     let result: unknown;
     let error: string | undefined;

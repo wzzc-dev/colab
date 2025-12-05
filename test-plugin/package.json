@@ -1,56 +1,81 @@
 {
-  "name": "colab-cat-replacer",
+  "name": "colab-electrobun-demo",
   "version": "1.0.0",
-  "description": "Replaces all images on web pages with adorable cat pictures",
+  "description": "Comprehensive test plugin demonstrating the full Colab plugin API surface - powered by Electrobun!",
   "main": "index.ts",
   "keywords": ["colab-plugin"],
   "author": "Colab Team",
   "license": "MIT",
   "colab-plugin": {
-    "displayName": "Cat Image Replacer",
-    "description": "Replaces all images on web pages with random cat pictures from cataas.com",
+    "displayName": "Electrobun Demo Plugin",
+    "description": "A comprehensive demo of the Colab plugin API with bunnies and lightning bolts",
     "main": "index.ts",
     "contributes": {
       "commands": [
         {
-          "id": "catReplacer.enable",
-          "title": "Enable Cat Mode"
+          "id": "electrobun.zap",
+          "title": "Zap! Enable Electrobun Mode"
         },
         {
-          "id": "catReplacer.disable",
-          "title": "Disable Cat Mode"
+          "id": "electrobun.rest",
+          "title": "Rest - Disable Electrobun Mode"
+        },
+        {
+          "id": "electrobun.showGitStatus",
+          "title": "Show Git Status"
+        },
+        {
+          "id": "electrobun.findFiles",
+          "title": "Find TypeScript Files"
+        },
+        {
+          "id": "electrobun.runShell",
+          "title": "Run Shell Command Demo"
+        },
+        {
+          "id": "electrobun.openDocs",
+          "title": "Open Electrobun Docs"
         }
       ],
       "webviewHooks": ["onLoad"]
     },
     "entitlements": {
+      "filesystem": {
+        "read": true,
+        "write": true,
+        "reason": "Demos workspace file operations (read, write, find files)"
+      },
       "network": {
         "internet": true,
-        "domains": ["cataas.com", "thecatapi.com", "random.cat"],
-        "reason": "Fetches random cat images from various cat image APIs"
+        "domains": ["placekitten.com", "placebear.com", "electrobun.dev"],
+        "reason": "Fetches placeholder images and opens documentation"
+      },
+      "process": {
+        "spawn": true,
+        "reason": "Demos shell command execution"
       },
       "webview": {
         "scriptInjection": true,
-        "reason": "Injects preload script to replace all images with cat pictures"
+        "reason": "Injects preload script to demo webview integration"
       },
       "terminal": {
         "commands": true,
-        "reason": "Registers the 'meow' terminal command"
+        "reason": "Registers the 'zap' and 'bunny' terminal commands"
       },
       "ui": {
         "statusBar": true,
         "contextMenu": true,
         "fileDecorations": true,
         "notifications": true,
-        "reason": "Displays cat mode status, adds context menu items, decorates TypeScript files with cat badge, shows notifications"
+        "reason": "Displays status, context menus, file badges, and notifications"
       },
       "editor": {
         "completions": true,
-        "reason": "Provides cat-themed console.log snippets for JavaScript/TypeScript"
+        "reason": "Provides electrobun-themed console.log snippets"
       },
       "keybindings": {
         "global": true,
-        "reason": "Registers Ctrl+Shift+M keyboard shortcut to enable cat mode"
+        "reason": "Registers Cmd+Shift+Z keyboard shortcut"
       }
     },
     "activationEvents": ["*"]
