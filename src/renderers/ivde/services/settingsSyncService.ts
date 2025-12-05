@@ -62,8 +62,10 @@ const SCHEMA_VERSION = 1;
  * Get the API base URL based on build channel
  */
 function getApiBaseUrl(): string {
-  const isDev = state.buildVars.channel === 'dev';
-  return isDev ? 'http://127.0.0.1:8788' : 'https://cloud.blackboard.sh';
+  const channel = state.buildVars.channel;
+  if (channel === 'dev') return 'http://127.0.0.1:8788';
+  if (channel === 'canary') return 'https://canary-cloud.blackboard.sh';
+  return 'https://cloud.blackboard.sh';
 }
 
 /**

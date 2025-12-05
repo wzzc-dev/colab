@@ -16,15 +16,16 @@ import {
   getSyncStatus,
 } from "../services/settingsSyncService";
 
-// API URLs - use 127.0.0.1 in dev (localhost can cause issues with webviews), production URL otherwise
+// API URLs - use 127.0.0.1 in dev, canary-cloud for canary, cloud for stable
 const getApiBaseUrl = () => {
-  const isDev = state.buildVars.channel === "dev";
-  return isDev ? "http://127.0.0.1:8788" : "https://cloud.blackboard.sh";
+  const channel = state.buildVars.channel;
+  if (channel === "dev") return "http://127.0.0.1:8788";
+  if (channel === "canary") return "https://canary-cloud.blackboard.sh";
+  return "https://cloud.blackboard.sh";
 };
 
 const getDashboardUrl = () => {
-  const isDev = state.buildVars.channel === "dev";
-  return isDev ? "http://127.0.0.1:8788/dashboard" : "https://cloud.blackboard.sh/dashboard";
+  return `${getApiBaseUrl()}/dashboard`;
 };
 
 export const ColabCloudSettings = (): JSXElement => {
