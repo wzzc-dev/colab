@@ -42,6 +42,13 @@ import { createBrowserProfileFolderName } from "../../utils/browserProfileUtils"
 // todo: implement cmd + click to open in new tab. needs more thought
 const colabPreloadScript = `
 (function() {
+  // Notify host that the page loaded successfully (preload script executed)
+  if (typeof window.__electrobunSendToHost === 'function') {
+    window.__electrobunSendToHost({
+      type: 'colab:page-loaded'
+    });
+  }
+
   // Set a default background color for pages that don't specify one
   // (e.g., raw JS/text files served without HTML)
   document.documentElement.style.backgroundColor = '#fff';
@@ -278,7 +285,10 @@ console.log('Preload script loaded for:', window.location.href);
         newUrl = `https://${newUrl}`;
       }
       webviewRef.src = newUrl;
-      
+
+      // Start load timeout for the new URL
+      startLoadTimeout(newUrl);
+
       // Update the URL and title in the tab immediately
       setState(
         produce((_state: AppState) => {
@@ -302,6 +312,48 @@ console.log('Preload script loaded for:', window.location.href);
 
   const [isBackDisabled, setIsBackDisabled] = createSignal(true);
   const [isForwardDisabled, setIsForwardDisabled] = createSignal(true);
+
+  // Track load errors to show error page
+  // Note: Electrobun doesn't expose did-fail-load events, so we use a timeout approach
+  const [loadError, setLoadError] = createSignal<{
+    errorDescription: string;
+    validatedURL: string;
+  } | null>(null);
+
+  // Track loading state for timeout-based error detection
+  const [isLoading, setIsLoading] = createSignal(true);
+  let loadTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  const LOAD_TIMEOUT_MS = 7000; // 7 seconds timeout
+
+  const startLoadTimeout = (url: string) => {
+    console.log("[WebSlate] Starting load timeout for:", url);
+    // Clear any existing timeout
+    if (loadTimeoutId) {
+      clearTimeout(loadTimeoutId);
+    }
+    setIsLoading(true);
+    setLoadError(null);
+
+    loadTimeoutId = setTimeout(() => {
+      // If still loading after timeout, show error
+      console.log("[WebSlate] Load timeout fired, isLoading:", isLoading());
+      if (isLoading()) {
+        setLoadError({
+          errorDescription: 'TIMEOUT',
+          validatedURL: url,
+        });
+      }
+    }, LOAD_TIMEOUT_MS);
+  };
+
+  const clearLoadTimeout = () => {
+    console.log("[WebSlate] Clearing load timeout");
+    if (loadTimeoutId) {
+      clearTimeout(loadTimeoutId);
+      loadTimeoutId = null;
+    }
+    setIsLoading(false);
+  };
 
   createEffect(async () => {
     // Note: wait for it to be ready, and wire reactivity to tabUrl
@@ -612,7 +664,7 @@ console.log('Preload script loaded for:', window.location.href);
   };
 
   return (
-    <div style="display: flex; flex-direction: column; height: 100%">
+    <div style="display: flex; flex-direction: column; height: 100%; position: relative;">
       <div style="display: flex; box-sizing: border-box; gap: 5px; padding: 10px; min-height: 40px;height: 40px; width: 100%;overflow-x:hidden;">
         <button
           class="browser-btn"
@@ -683,8 +735,112 @@ console.log('Preload script loaded for:', window.location.href);
         </button>
       </div>
 
-      <Show 
-        when={preloadLoaded()} 
+      {/* Error overlay - shown when page fails to load */}
+      <Show when={loadError()}>
+        <div
+          class="webview-overlay"
+          style={{
+            position: "absolute",
+            top: "40px",
+            left: "0",
+            right: "0",
+            bottom: "0",
+            background: "#1e1e1e",
+            display: "flex",
+            "flex-direction": "column",
+            "align-items": "center",
+            "justify-content": "center",
+            "z-index": "10",
+            padding: "40px",
+            "text-align": "center",
+          }}
+        >
+          <div style={{
+            "max-width": "400px",
+            display: "flex",
+            "flex-direction": "column",
+            "align-items": "center",
+            gap: "16px",
+          }}>
+            {/* Error icon */}
+            <div style={{
+              width: "64px",
+              height: "64px",
+              "border-radius": "50%",
+              background: "#333",
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "center",
+              "font-size": "32px",
+              color: "#888",
+            }}>
+              ⚠
+            </div>
+
+            {/* Error title */}
+            <h2 style={{
+              margin: "0",
+              color: "#ddd",
+              "font-size": "18px",
+              "font-weight": "600",
+            }}>
+              {loadError()?.errorDescription === 'TIMEOUT'
+                ? "Page Took Too Long to Load"
+                : "Can't Connect to Server"}
+            </h2>
+
+            {/* Error description */}
+            <p style={{
+              margin: "0",
+              color: "#888",
+              "font-size": "14px",
+              "line-height": "1.5",
+            }}>
+              {loadError()?.errorDescription === 'TIMEOUT'
+                ? "The page didn't respond in time. The server may be slow, unreachable, or the URL may be incorrect."
+                : "Could not connect to the server. Check that the URL is correct and that you have an internet connection."}
+            </p>
+
+            {/* URL that failed */}
+            <p style={{
+              margin: "0",
+              color: "#666",
+              "font-size": "12px",
+              "word-break": "break-all",
+              "max-width": "100%",
+            }}>
+              {loadError()?.validatedURL}
+            </p>
+
+            {/* Try Again button */}
+            <button
+              type="button"
+              onClick={() => {
+                const url = loadError()?.validatedURL || tabUrl() || initialUrl;
+                setLoadError(null);
+                startLoadTimeout(url);
+                webviewRef?.reload();
+              }}
+              style={{
+                "margin-top": "8px",
+                padding: "8px 24px",
+                background: "#3b82f6",
+                color: "#fff",
+                border: "none",
+                "border-radius": "6px",
+                "font-size": "14px",
+                "font-weight": "500",
+                cursor: "pointer",
+              }}
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </Show>
+
+      <Show
+        when={preloadLoaded()}
         fallback={
           <div style={{
             width: "calc(100% - 4px)",
@@ -734,6 +890,9 @@ console.log('Preload script loaded for:', window.location.href);
 
           webviewRef.addMaskSelector(".webview-overlay");
 
+          // Start load timeout for initial URL
+          startLoadTimeout(initialUrl);
+
           webviewRef.on("dom-ready", () => {
             console.log("dom-ready event fired for webview:", webviewRef.webviewId);
             setIsReady(true);
@@ -762,66 +921,6 @@ console.log('Preload script loaded for:', window.location.href);
                   _tab.title = newTitle;
                 })
               );
-            }
-          });
-
-          // Also listen for when loading stops to get the title
-          webviewRef.on("did-stop-loading", async () => {
-            // Try getting title directly
-            const pageTitle = webviewRef?.getTitle?.();
-            console.log("did-stop-loading, title from getTitle:", pageTitle);
-
-            // Also try executing JavaScript to get the title
-            try {
-              const titleFromJS = await webviewRef?.executeJavaScript?.("document.title");
-              console.log("did-stop-loading, title from JS:", titleFromJS);
-
-              const finalTitle = pageTitle || titleFromJS;
-              if (finalTitle && typeof finalTitle === 'string' && !isCorruptedTitle(finalTitle)) {
-                setState(
-                  produce((_state: AppState) => {
-                    const _tab = getWindow(_state)?.tabs[tabId] as WebTabType;
-                    _tab.title = finalTitle;
-                  })
-                );
-              }
-              
-              // Also fetch favicon when page finishes loading
-              const currentUrl = tabUrl();
-              if (currentUrl) {
-                electrobun.rpc?.request
-                  .getFaviconForUrl({ url: currentUrl })
-                  .then((favicon) => {
-                    if (favicon && isRealNode() && node) {
-                      const slateConfigPath = join(node.path, ".colab.json");
-                      electrobun.rpc?.request.readFile({ path: slateConfigPath })
-                        .then((content) => {
-                          if (content) {
-                            try {
-                              const slateConfig = JSON.parse(content);
-                              if (slateConfig.icon !== favicon) {
-                                slateConfig.icon = favicon;
-                                electrobun.rpc?.request.writeFile({
-                                  path: slateConfigPath,
-                                  value: JSON.stringify(slateConfig, null, 2),
-                                });
-                              }
-                            } catch (error) {
-                              console.error("Error updating slate config favicon on load:", error);
-                            }
-                          }
-                        })
-                        .catch((error) => {
-                          console.error("Error reading slate config for favicon update on load:", error);
-                        });
-                    }
-                  })
-                  .catch((error) => {
-                    console.error("Error fetching favicon on page load:", error);
-                  });
-              }
-            } catch (e) {
-              console.log("Error getting title from JS:", e);
             }
           });
 
@@ -942,10 +1041,18 @@ console.log('Preload script loaded for:', window.location.href);
             }
           });
 
-          // Listen for keyboard shortcuts forwarded from webview preload scripts
-          // This allows Ctrl+Tab/Ctrl+Shift+Tab to work even when the webview OOPIF has focus
+          // Listen for messages from webview preload scripts
           webviewRef.on("host-message", (e: any) => {
             const msg = e.detail;
+
+            // Page loaded successfully - preload script executed
+            if (msg?.type === 'colab:page-loaded') {
+              console.log("[WebSlate] Page loaded message received from preload");
+              clearLoadTimeout();
+            }
+
+            // Keyboard shortcuts forwarded from webview
+            // This allows Ctrl+Tab/Ctrl+Shift+Tab to work even when the webview OOPIF has focus
             if (msg?.type === 'colab:keydown') {
               // Dispatch a synthetic keyboard event to the document so it bubbles up
               // to the global keydown handler in index.tsx
