@@ -156,6 +156,21 @@ class GitHubService {
     return response.json();
   }
 
+  async fetchRepository(owner: string, repo: string): Promise<GitHubRepository> {
+    const response = await fetch(`${this.baseUrl}/repos/${owner}/${repo}`, {
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error(`Repository not found: ${owner}/${repo}`);
+      }
+      throw new Error(`Failed to fetch repository: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
   async fetchRepositoryBranches(owner: string, repo: string): Promise<Array<{
     name: string;
     commit: { sha: string };

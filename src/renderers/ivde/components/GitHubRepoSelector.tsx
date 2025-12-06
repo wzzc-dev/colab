@@ -51,6 +51,21 @@ export const GitHubRepoSelector = (
 		loadOrganizations();
 	});
 
+	// Check if the search query is an owner/repo pattern
+	const isOwnerRepoPattern = (query: string): { owner: string; repo: string } | null => {
+		const trimmed = query.trim();
+		// Match patterns like "owner/repo" or "https://github.com/owner/repo"
+		const urlMatch = trimmed.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/\s]+)\/([^\/\s]+?)(?:\.git)?$/i);
+		if (urlMatch) {
+			return { owner: urlMatch[1], repo: urlMatch[2] };
+		}
+		const simpleMatch = trimmed.match(/^([^\/\s]+)\/([^\/\s]+)$/);
+		if (simpleMatch) {
+			return { owner: simpleMatch[1], repo: simpleMatch[2] };
+		}
+		return null;
+	};
+
 	const loadRepositories = async () => {
 		if (!githubService.isConnected()) {
 			setError("GitHub not connected");
@@ -63,7 +78,18 @@ export const GitHubRepoSelector = (
 		try {
 			let repos: GitHubRepository[];
 
-			if (selectedOrg() === "public") {
+			// Check if search query is an owner/repo pattern (works in any mode)
+			const ownerRepo = isOwnerRepoPattern(searchQuery());
+			if (ownerRepo) {
+				try {
+					const repo = await githubService.fetchRepository(ownerRepo.owner, ownerRepo.repo);
+					repos = [repo];
+				} catch (err) {
+					// If direct fetch fails, fall back to search
+					console.log("Direct repo fetch failed, falling back to search:", err);
+					repos = [];
+				}
+			} else if (selectedOrg() === "public") {
 				// Search public repositories - use search query if provided, otherwise search for popular repos
 				const query = searchQuery().trim() || "stars:>100 created:>2020-01-01"; // Default to popular recent repos
 				const result = await githubService.searchRepositories(query, {
@@ -248,7 +274,7 @@ export const GitHubRepoSelector = (
 				<div style="display: flex; gap: 8px; margin-bottom: 8px;">
 					<input
 						type="text"
-						placeholder="Search repositories..."
+						placeholder="Search or enter owner/repo..."
 						value={searchQuery()}
 						onInput={(e) => setSearchQuery(e.currentTarget.value)}
 						style="flex: 1; background: #1a1a1a; border: 1px solid #555; color: #d9d9d9; padding: 6px 8px; border-radius: 4px; font-size: 11px;"
