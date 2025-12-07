@@ -206,31 +206,9 @@ const checkForUpdate = async () => {
       broadcastToAllWindows("updateStatus", updateCache);
     } else if (updateInfo.updateAvailable) {
       console.log("update available");
-      // todo (yoav): add a button to the UI to trigger this
-      // await Electrobun.Updater.downloadUpdate();
-      // const newUpdate = updateInfo.hash !== updateCache.info?.hash;
-
       updateCache.status = "update-available";
       updateCache.info = updateInfo;
       broadcastToAllWindows("updateStatus", updateCache);
-
-      // if (newUpdate) {
-      await Electrobun.Updater.downloadUpdate();
-
-      if (Electrobun.Updater.updateInfo().updateReady) {
-        console.log("update app");
-        updateCache.status = "update-downloaded";
-        updateCache.downloadedFile = true;
-
-        broadcastToAllWindows("updateStatus", updateCache);
-        // await Electrobun.Updater.applyUpdate();
-      } else {
-        updateCache.status = "update-not-downloaded";
-        updateCache.downloadedFile = false;
-
-        broadcastToAllWindows("updateStatus", updateCache);
-      }
-      // }
     } else {
       updateCache.status = "update-not-available";
       updateCache.info = updateInfo;
@@ -2389,8 +2367,31 @@ const createWindow = (workspaceId: string, window?: WindowConfigType, offset?: {
         hideWorkspace: () => {
           toggleWorkspace(workspaceId);
         },
-        installUpdateNow: () => {
+        installUpdateNow: async () => {
           track.installUpdateNow({ triggeredBy: "user" });
+
+          // Download the update first if not already downloaded
+          if (!updateCache.downloadedFile) {
+            updateCache.status = "downloading";
+            broadcastToAllWindows("updateStatus", updateCache);
+
+            await Electrobun.Updater.downloadUpdate();
+
+            if (!Electrobun.Updater.updateInfo().updateReady) {
+              updateCache.status = "error";
+              updateCache.error = {
+                message: "Download failed",
+                stack: "",
+              };
+              broadcastToAllWindows("updateStatus", updateCache);
+              return;
+            }
+
+            updateCache.status = "update-downloaded";
+            updateCache.downloadedFile = true;
+            broadcastToAllWindows("updateStatus", updateCache);
+          }
+
           cleanupLlamaProcesses();
           Electrobun.Updater.applyUpdate();
         },

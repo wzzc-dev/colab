@@ -728,12 +728,13 @@ const WorkspaceMenu = ({ children }: { children: JSX.Element }) => {
 };
 
 const Update = () => {
-  const isReady = () => Boolean(state.update.downloadedFile);
   const updateInfo = () => state.update.info;
   const hasError = () =>
     state.update.status === "error" || Boolean(state.update.error);
+  const isDownloading = () => state.update.status === "downloading";
+  const isAvailable = () => state.update.status === "update-available";
   const updateAvailable = () =>
-    Boolean(updateInfo()?.updateAvailable) || isReady() || hasError();
+    Boolean(updateInfo()?.updateAvailable) || hasError();
   const updateErrorMessage = () =>
     state.update.error?.message || "Update failed. Please download manually.";
 
@@ -744,29 +745,27 @@ const Update = () => {
       return "Update Failed";
     }
 
-    if (isReady()) {
-      return `Update Installed: Click to Restart ${version} - ${updateInfo().hash}`;
+    if (isDownloading()) {
+      return `Installing Update ${version}`;
     }
 
-    return `Installing Update ${version} - ${updateInfo().hash}`;
+    return `Update Available: ${version}`;
   };
 
   const buttonTitle = () => {
     if (hasError()) {
       return updateErrorMessage();
-    } else if (isReady()) {
-      return "Will automatically update at next restart";
     }
 
-    if (state.update.status === "update-not-downloaded") {
-      return "Download failed, retrying shortly";
+    if (isDownloading()) {
+      return "Downloading and installing update…";
     }
 
-    return "Fetching update…";
+    return "Click to install update and restart";
   };
 
   const onClick = () => {
-    if (!isReady()) {
+    if (isDownloading()) {
       return;
     }
 
@@ -780,14 +779,14 @@ const Update = () => {
         onClick={onClick}
         title={buttonTitle()}
         style={`font-size: 13px;margin: 8px 0px; padding: 5px; cursor: ${
-          isReady() ? "pointer" : "default"
+          isDownloading() ? "default" : "pointer"
         };`}
       >
         <span
           style={`-webkit-user-select: none;border-radius: 4px;  padding: 5px 17px; font-size: 13px; box-sizing: border-box; color: ${
             hasError() ? "#fff" : "#222"
           }; opacity: ${
-            hasError() || isReady() ? 1 : 0.7
+            isDownloading() ? 0.7 : 1
           };`}
         >
           {buttonLabel()}
