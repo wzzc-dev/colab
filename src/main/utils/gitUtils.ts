@@ -4,10 +4,19 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 
-// Environment variables for vendored git - sets exec path so git can find helpers like git-remote-https
+// Path to macOS osxkeychain credential helper (if available)
+const OSXKEYCHAIN_HELPER = "/Library/Developer/CommandLineTools/usr/libexec/git-core/git-credential-osxkeychain";
+
+// Environment variables for vendored git
+// - GIT_EXEC_PATH: sets exec path so git can find helpers like git-remote-https
+// - HOME: ensures git can find ~/.gitconfig for user.name and user.email
 const gitEnv = {
   GIT_EXEC_PATH: GIT_VENDOR_PATH,
+  HOME: os.homedir(),
 };
+
+// Check if osxkeychain helper is available for credential management
+const hasOsxKeychainHelper = fs.existsSync(OSXKEYCHAIN_HELPER);
 
 const git = (baseDir: string) => {
   return simpleGit({
@@ -118,6 +127,8 @@ export const gitValidateUrl = async (gitUrl: string) => {
       binary: GIT_BINARY_PATH,
       unsafe: {
         allowUnsafeCustomBinary: true,
+        allowUnsafePack: true,
+        allowUnsafeProtocolOverride: true,
       },
       maxConcurrentProcesses: 2,
       trimmed: false,
@@ -153,6 +164,8 @@ export const gitClone = async (repoPath: string, gitUrl: string, createMainBranc
         binary: GIT_BINARY_PATH,
         unsafe: {
           allowUnsafeCustomBinary: true,
+          allowUnsafePack: true,
+          allowUnsafeProtocolOverride: true,
         },
         maxConcurrentProcesses: 2,
         trimmed: false,
@@ -176,6 +189,8 @@ export const gitClone = async (repoPath: string, gitUrl: string, createMainBranc
         binary: GIT_BINARY_PATH,
         unsafe: {
           allowUnsafeCustomBinary: true,
+          allowUnsafePack: true,
+          allowUnsafeProtocolOverride: true,
         },
         maxConcurrentProcesses: 2,
         trimmed: false,
@@ -285,10 +300,24 @@ export const gitFetch = async (repoRoot: string, remote?: string, options: strin
       unsafe: {
         allowUnsafeCustomBinary: true,
         allowUnsafePack: true,
-        allowUnsafeExtProtocol: true
+        allowUnsafeProtocolOverride: true,
       },
+      maxConcurrentProcesses: 2,
+      trimmed: false,
     }).env(gitEnv);
-    const result = await gitInstance.fetch(remote, undefined, options);
+
+    // Build fetch command with credential helper configuration
+    const fetchArgs: string[] = [];
+    if (hasOsxKeychainHelper) {
+      fetchArgs.push('-c', `credential.helper=${OSXKEYCHAIN_HELPER}`);
+    }
+    fetchArgs.push('fetch');
+    if (remote) {
+      fetchArgs.push(remote);
+    }
+    fetchArgs.push(...options);
+
+    const result = await gitInstance.raw(fetchArgs);
     return result;
   } catch (error) {
     console.error('Git fetch error:', error);
@@ -304,10 +333,27 @@ export const gitPull = async (repoRoot: string, remote?: string, branch?: string
       unsafe: {
         allowUnsafeCustomBinary: true,
         allowUnsafePack: true,
-        allowUnsafeExtProtocol: true
+        allowUnsafeProtocolOverride: true,
       },
+      maxConcurrentProcesses: 2,
+      trimmed: false,
     }).env(gitEnv);
-    const result = await gitInstance.pull(remote, branch, options);
+
+    // Build pull command with credential helper configuration
+    const pullArgs: string[] = [];
+    if (hasOsxKeychainHelper) {
+      pullArgs.push('-c', `credential.helper=${OSXKEYCHAIN_HELPER}`);
+    }
+    pullArgs.push('pull');
+    if (remote) {
+      pullArgs.push(remote);
+    }
+    if (branch) {
+      pullArgs.push(branch);
+    }
+    pullArgs.push(...options);
+
+    const result = await gitInstance.raw(pullArgs);
     return result;
   } catch (error) {
     console.error('Git pull error:', error);
@@ -323,10 +369,27 @@ export const gitPush = async (repoRoot: string, remote?: string, branch?: string
       unsafe: {
         allowUnsafeCustomBinary: true,
         allowUnsafePack: true,
-        allowUnsafeExtProtocol: true
+        allowUnsafeProtocolOverride: true,
       },
+      maxConcurrentProcesses: 2,
+      trimmed: false,
     }).env(gitEnv);
-    const result = await gitInstance.push(remote, branch, options);
+
+    // Build push command with credential helper configuration
+    const pushArgs: string[] = [];
+    if (hasOsxKeychainHelper) {
+      pushArgs.push('-c', `credential.helper=${OSXKEYCHAIN_HELPER}`);
+    }
+    pushArgs.push('push');
+    if (remote) {
+      pushArgs.push(remote);
+    }
+    if (branch) {
+      pushArgs.push(branch);
+    }
+    pushArgs.push(...options);
+
+    const result = await gitInstance.raw(pushArgs);
     return result;
   } catch (error) {
     console.error('Git push error:', error);
