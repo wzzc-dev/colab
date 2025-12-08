@@ -26,7 +26,7 @@ A hybrid web browser + local code editor for deep work.
 
 ### Download
 
-Visit [colab.sh](https://colab.sh) to download the latest release for your platform. (Currently shipping Mac ARM only)
+Visit [blackboard.sh/colab/](https://blackboard.sh/colab/) to download the latest release for your platform. (Currently shipping Mac ARM only)
 
 ### Build from Source
 
@@ -105,7 +105,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Support
 
-- **Website**: [colab.sh](https://colab.sh)
+- **Website**: [blackboard.sh/colab/](https://blackboard.sh/colab/)
 - **Issues**: [GitHub Issues](https://github.com/blackboardsh/colab/issues)
 - **Discussion**: [Discord](https://discord.gg/ueKE4tjaCE)
 
