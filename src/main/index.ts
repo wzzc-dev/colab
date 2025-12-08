@@ -1082,28 +1082,26 @@ const createWindow = (workspaceId: string, window?: WindowConfigType, offset?: {
           return newNode;
         },
         addProject: ({ projectName, path }) => {
-          // Use setTimeout to make project creation asynchronous and avoid blocking the main thread
-          setTimeout(() => {
-            const workspace = db
-              .collection("workspaces")
-              .queryById(workspaceId).data;
+          const workspace = db
+            .collection("workspaces")
+            .queryById(workspaceId).data;
 
-            if (!workspace) {
-              // todo: return error maybe
-              return;
-            }
+          if (!workspace) {
+            return { success: false, error: "Workspace not found" };
+          }
 
-            const insertedProject = db
-              .collection("projects")
-              .insert({ name: projectName, path });
+          const insertedProject = db
+            .collection("projects")
+            .insert({ name: projectName, path });
 
-            // todo (yoav): update should take a function
-            db.collection("workspaces").update(workspaceId, {
-              projectIds: [...(workspace.projectIds || []), insertedProject.id],
-            });
+          // todo (yoav): update should take a function
+          db.collection("workspaces").update(workspaceId, {
+            projectIds: [...(workspace.projectIds || []), insertedProject.id],
+          });
 
-            fetchAndSendProjects();
-          }, 0);
+          fetchAndSendProjects();
+
+          return { success: true, projectId: insertedProject.id };
         },
         showContextMenu: ({ menuItems }) => {
           Electrobun.ContextMenu.showContextMenu(menuItems);
@@ -2742,8 +2740,6 @@ if (workspaces.length === 0) {
 
   workspaces = db.collection("workspaces").query()?.data || [];
 }
-
-// const { data: projects } = db.collection("projects").query();
 
 workspaces.forEach((workspace) => {
   if (workspace.visible) {

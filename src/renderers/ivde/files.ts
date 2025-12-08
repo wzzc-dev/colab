@@ -119,6 +119,10 @@ export const getProjectForNodePath = (
   _state: AppState = state
 ) => {
   const project = Object.values(_state.projects).find((project) => {
+    // Skip projects with empty or invalid paths
+    if (!project.path) {
+      return false;
+    }
     return nodePath.startsWith(project.path);
   });
 

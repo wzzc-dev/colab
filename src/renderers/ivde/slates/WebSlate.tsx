@@ -20,7 +20,7 @@ import { state, setState } from "../store";
 import { produce } from "solid-js/store";
 import { getWindow } from "../store";
 
-import { getSlateForNode } from "../files";
+import { getSlateForNode, getProjectForNodePath } from "../files";
 
 import { type DomEventWithTarget } from "../../../shared/types/types";
 import { Show, createEffect, createSignal, createMemo } from "solid-js";
@@ -212,12 +212,13 @@ export const WebSlate = ({
   };
 
   const onCreatePreloadScript = async () => {
+    // This button is only shown for real nodes (browser profiles saved to disk)
     if (!isRealNode() || !node) {
-      // For internal nodes or when node is undefined, just open devtools
       webviewRef?.openDevTools();
       return;
     }
 
+    const folderPath = node.path;
     const fileName = ".preload.js";
     const defaultContent = `// Preload script for this web browser profile
 // This script runs before the page loads and can modify the page behavior
@@ -238,13 +239,13 @@ export const WebSlate = ({
 
 console.log('Preload script loaded for:', window.location.href);
 `;
-    
-    const filePath = join(node.path, fileName);
-    
+
+    const filePath = join(folderPath, fileName);
+
     try {
       // Check if file already exists
       const exists = await electrobun.rpc?.request.exists({ path: filePath });
-      
+
       let wasCreated = false;
       if (!exists) {
         // Create the file if it doesn't exist
@@ -254,18 +255,18 @@ console.log('Preload script loaded for:', window.location.href);
         });
         wasCreated = true;
       }
-      
+
       if (wasCreated) {
         // Wait a bit for the file system events to be processed and the file to be detected
         setTimeout(() => {
-          // Expand the web node folder
-          setNodeExpanded(node.path, true);
+          // Expand the folder
+          setNodeExpanded(folderPath!, true);
         }, 500);
       } else {
         // File already exists, expand immediately
-        setNodeExpanded(node.path, true);
+        setNodeExpanded(folderPath, true);
       }
-      
+
       // Open the file in the current pane for editing
       openNewTabForNode(filePath, false, { focusNewTab: true });
     } catch (error) {
@@ -459,12 +460,13 @@ console.log('Preload script loaded for:', window.location.href);
   });
 
   const onClickAddBrowserProfile = async () => {
+    // This button is only shown for real nodes (browser profiles saved to disk)
     if (!isRealNode() || !node) {
-      // Can't create browser profiles for internal nodes or when node is undefined
-      console.log("Cannot create browser profile: isRealNode=", isRealNode(), "node=", node);
+      console.log("Cannot create browser profile: no valid parent folder");
       return;
     }
 
+    const parentFolderPath = node.path;
     const currentUrl = tabUrl();
     if (!currentUrl) {
       return;
@@ -474,18 +476,21 @@ console.log('Preload script loaded for:', window.location.href);
     const _tab = tab();
     const pageTitle = _tab?.type === "web" ? _tab.title : null;
 
+    // Get the current renderer type to preserve it in the new profile
+    const currentRenderer = renderer();
+
     try {
-      
+
       // Use the shared utility to create a proper browser profile folder name
       const nodeName = await createBrowserProfileFolderName(
         pageTitle,
         currentUrl,
-        node.path,
+        parentFolderPath,
         electrobun.rpc!.request.makeFileNameSafe,
         electrobun.rpc!.request.getUniqueNewName
       );
-      const browserProfilePath = join(node.path, nodeName);
-      
+      const browserProfilePath = join(parentFolderPath, nodeName);
+
       // Create the browser profile directory
       const mkdirResult = await electrobun.rpc?.request.mkdir({ path: browserProfilePath });
       if (!mkdirResult?.success) {
@@ -493,8 +498,9 @@ console.log('Preload script loaded for:', window.location.href);
         alert("Failed to create browser profile folder. Please try again.");
         return;
       }
-      
+
       // Write the .colab.json slate config file
+      // Preserve the renderer type from the current tab
       const slateConfig = {
         v: 1,
         name: pageTitle || new URL(currentUrl).hostname,
@@ -502,16 +508,16 @@ console.log('Preload script loaded for:', window.location.href);
         type: "web",
         url: currentUrl,
         config: {
-          renderer: "system" as const, // Default to WebKit for new browser profiles
+          renderer: currentRenderer as "system" | "cef",
         },
       };
-      
+
       const slateConfigPath = join(browserProfilePath, ".colab.json");
       const writeResult = await electrobun.rpc?.request.writeFile({
         path: slateConfigPath,
         value: JSON.stringify(slateConfig, null, 2),
       });
-      
+
       if (!writeResult?.success) {
         console.error("Failed to write slate config:", writeResult?.error);
         // Try to clean up the created directory
@@ -520,13 +526,13 @@ console.log('Preload script loaded for:', window.location.href);
         return;
       }
 
-      // Expand the parent node so the new browser profile is visible
-      setNodeExpanded(node.path, true);
-      
+      // Expand the parent folder so the new browser profile is visible
+      setNodeExpanded(parentFolderPath, true);
+
       // Open the new browser profile in a new tab
-      openNewTabForNode(browserProfilePath, false, { 
-        url: currentUrl, 
-        focusNewTab: true 
+      openNewTabForNode(browserProfilePath, false, {
+        url: currentUrl,
+        focusNewTab: true
       });
 
       // Fetch and update the favicon asynchronously
@@ -546,17 +552,145 @@ console.log('Preload script loaded for:', window.location.href);
           console.error("Failed to fetch favicon:", error);
           // Non-critical error, browser profile is already created
         });
-        
+
     } catch (error) {
       console.error("Error creating browser profile:", error);
       console.error("Debug info:", {
         isRealNode: isRealNode(),
-        nodePath: node?.path,
+        isQuickBrowser: isQuickBrowser(),
+        parentFolderPath,
         currentUrl,
         pageTitle: _tab?.type === "web" ? _tab.title : null,
         tabType: _tab?.type,
       });
       alert("Failed to create browser profile. Please try again.");
+    }
+  };
+
+  // Save browser profile for quick access tabs - opens folder picker and auto-adds project if needed
+  const onClickSaveBrowserProfile = async () => {
+    const currentUrl = tabUrl();
+    if (!currentUrl) {
+      return;
+    }
+
+    // Get title from tab state
+    const _tab = tab();
+    const pageTitle = _tab?.type === "web" ? _tab.title : null;
+
+    // Get the current renderer type to preserve it in the new profile
+    const currentRenderer = renderer();
+
+    try {
+      // Open folder picker
+      const result = await electrobun.rpc?.request.openFileDialog({
+        startingFolder: state.paths?.COLAB_HOME_FOLDER || "",
+        allowedFileTypes: "",
+        canChooseFiles: false,
+        canChooseDirectory: true,
+        allowsMultipleSelection: false,
+      });
+
+      if (!result || result.length === 0) {
+        // User cancelled
+        return;
+      }
+
+      const selectedPath = result[0];
+
+      // Check if this path is inside an existing project
+      const existingProject = getProjectForNodePath(selectedPath);
+      console.log("[SaveBrowserProfile] selectedPath:", selectedPath);
+      console.log("[SaveBrowserProfile] existingProject:", existingProject);
+      console.log("[SaveBrowserProfile] existingProject path:", existingProject?.path);
+      console.log("[SaveBrowserProfile] all projects:", Object.values(state.projects).map(p => p.path));
+
+      if (!existingProject) {
+        // Add the selected folder as a new project
+        const projectName = selectedPath.split("/").pop() || "Browser Profiles";
+        console.log("[SaveBrowserProfile] Adding new project:", projectName, "at path:", selectedPath);
+        const addResult = await electrobun.rpc?.request.addProject({
+          projectName,
+          path: selectedPath,
+        });
+        console.log("[SaveBrowserProfile] addProject result:", addResult);
+
+        // Wait a bit for the project to be created and file watcher to pick it up
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      // Now create the browser profile in the selected folder
+      const nodeName = await createBrowserProfileFolderName(
+        pageTitle,
+        currentUrl,
+        selectedPath,
+        electrobun.rpc!.request.makeFileNameSafe,
+        electrobun.rpc!.request.getUniqueNewName
+      );
+      const browserProfilePath = join(selectedPath, nodeName);
+
+      // Create the browser profile directory
+      const mkdirResult = await electrobun.rpc?.request.mkdir({ path: browserProfilePath });
+      if (!mkdirResult?.success) {
+        console.error("Failed to create browser profile directory:", mkdirResult?.error);
+        alert("Failed to create browser profile folder. Please try again.");
+        return;
+      }
+
+      // Write the .colab.json slate config file
+      const slateConfig = {
+        v: 1,
+        name: pageTitle || new URL(currentUrl).hostname,
+        icon: "views://assets/file-icons/bookmark.svg",
+        type: "web",
+        url: currentUrl,
+        config: {
+          renderer: currentRenderer as "system" | "cef",
+        },
+      };
+
+      const slateConfigPath = join(browserProfilePath, ".colab.json");
+      const writeResult = await electrobun.rpc?.request.writeFile({
+        path: slateConfigPath,
+        value: JSON.stringify(slateConfig, null, 2),
+      });
+
+      if (!writeResult?.success) {
+        console.error("Failed to write slate config:", writeResult?.error);
+        // Try to clean up the created directory
+        await electrobun.rpc?.request.safeDeleteFileOrFolder({ absolutePath: browserProfilePath });
+        alert("Failed to create browser profile configuration. Please try again.");
+        return;
+      }
+
+      // Expand the folder so the new browser profile is visible
+      setNodeExpanded(selectedPath, true);
+
+      // Open the new browser profile in a new tab
+      openNewTabForNode(browserProfilePath, false, {
+        url: currentUrl,
+        focusNewTab: true
+      });
+
+      // Fetch and update the favicon asynchronously
+      electrobun.rpc?.request
+        .getFaviconForUrl({ url: currentUrl })
+        .then(async (favicon) => {
+          if (favicon && favicon !== slateConfig.icon) {
+            const updatedSlateConfig = { ...slateConfig, icon: favicon };
+            await electrobun.rpc?.request.writeFile({
+              path: slateConfigPath,
+              value: JSON.stringify(updatedSlateConfig, null, 2),
+            });
+          }
+        })
+        .catch(error => {
+          console.error("Failed to fetch favicon:", error);
+        });
+
+    } catch (error) {
+      console.error("Error saving browser profile:", error);
+      alert("Failed to save browser profile. Please try again.");
     }
   };
 
@@ -570,7 +704,15 @@ console.log('Preload script loaded for:', window.location.href);
   // showDefinitionForSelection
 
   const isRealNode = createMemo(() => node && !node.path.startsWith("__COLAB_INTERNAL__") && !node.path.startsWith("__COLAB_TEMPLATE__"));
-  const preloadFilePath = createMemo(() => isRealNode() && node ? join(node.path, ".preload.js") : "");
+
+  // Check if this is a quick browser tab (opened from quick access)
+  const isQuickBrowser = createMemo(() => node?.path.startsWith("__COLAB_TEMPLATE__/browser-"));
+
+  // For real nodes, get the preload script path from the node's folder
+  // Quick browser tabs don't have preload scripts (they're ephemeral)
+  const preloadFilePath = createMemo(() => {
+    return isRealNode() && node ? join(node.path, ".preload.js") : "";
+  });
 
   const [preloadContent, setPreloadContent] = createSignal("");
   const [preloadLoaded, setPreloadLoaded] = createSignal(false);
@@ -705,20 +847,33 @@ console.log('Preload script loaded for:', window.location.href);
           value={webviewUrl()}
           onKeyDown={onUrlInputKeyDown}
         />
-        <button class="browser-btn" type="button" onClick={onClickAddBrowserProfile}>
-          <img
-            width="12"
-            height="12"
-            src={`views://assets/file-icons/browser-add-profile.svg`}
-          />
-        </button>
-        <button class="browser-btn" type="button" onClick={onCreatePreloadScript}>
-          <img
-            width="12"
-            height="12"
-            src={`views://assets/file-icons/browser-devtools.svg`}
-          />
-        </button>
+        {/* For quick access browser tabs, show "Save Browser Profile" button */}
+        <Show when={isQuickBrowser()}>
+          <button class="browser-btn" type="button" onClick={onClickSaveBrowserProfile} title="Save as Browser Profile">
+            <img
+              width="12"
+              height="12"
+              src={`views://assets/file-icons/browser-add-bookmark.svg`}
+            />
+          </button>
+        </Show>
+        {/* For real browser profile nodes, show add nested profile and preload script buttons */}
+        <Show when={isRealNode()}>
+          <button class="browser-btn" type="button" onClick={onClickAddBrowserProfile} title="Save Nested Browser Profile">
+            <img
+              width="12"
+              height="12"
+              src={`views://assets/file-icons/browser-add-bookmark.svg`}
+            />
+          </button>
+          <button class="browser-btn" type="button" onClick={onCreatePreloadScript} title="Edit Preload Script">
+            <img
+              width="12"
+              height="12"
+              src={`views://assets/file-icons/browser-script.svg`}
+            />
+          </button>
+        </Show>
       </div>
 
       {/* Error overlay - shown when page fails to load */}

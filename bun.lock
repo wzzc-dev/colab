@@ -12,7 +12,7 @@
         "@xterm/addon-webgl": "^0.18.0",
         "@xterm/xterm": "^5.5.0",
         "ansi-to-html": "^0.7.2",
-        "electrobun": "0.4.0-beta.0",
+        "electrobun": "0.4.1",
         "esbuild": "^0.25.12",
         "esbuild-monaco-editor-plugin": "^0.1.1",
         "esbuild-plugin-solid": "^0.5.0",
@@ -728,7 +728,7 @@
 
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
-    "electrobun": ["electrobun@0.4.0-beta.0", "", { "dependencies": { "@oneidentity/zstd-js": "^1.0.3", "archiver": "^7.0.1", "rpc-anywhere": "1.5.0", "tar": "^6.2.1" }, "bin": { "electrobun": "bin/electrobun.cjs" } }, "sha512-lArpeoZV+Iy/2iAAo4CAPWTfoU1TfwYNj39QOYcV4FrMycx/8qJ0dXNqxeRHE14MPxzsD1TY2vgRn6hLgL3r5A=="],
+    "electrobun": ["electrobun@0.4.1", "", { "dependencies": { "@oneidentity/zstd-js": "^1.0.3", "archiver": "^7.0.1", "rpc-anywhere": "1.5.0", "tar": "^6.2.1" }, "bin": { "electrobun": "bin/electrobun.cjs" } }, "sha512-iKp1yUJZ8C/isOsHworaEGk6KSuAajG9LW6Mn4ykjBhw9oI3bpy3CaI6smh5GOhT4FEah18XNoz+Sw4Ff3zdHg=="],
 
     "electron-to-chromium": ["electron-to-chromium@1.5.234", "", {}, "sha512-RXfEp2x+VRYn8jbKfQlRImzoJU01kyDvVPBmG39eU2iuRVhuS6vQNocB8J0/8GrIMLnPzgz4eW6WiRnJkTuNWg=="],
 

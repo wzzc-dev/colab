@@ -232,21 +232,19 @@ const CategoryRow = ({ label, showAddButton = false }: { label: string; showAddB
   );
 };
 
-// Template node definitions for quick access
+// Template node definitions for quick access items
 const TEMPLATE_NODES = [
   {
     id: "browser-chromium",
-    name: "Chromium Tab",
+    name: "Chromium",
     path: "__COLAB_TEMPLATE__/browser-chromium",
     icon: "views://assets/file-icons/chrome-logo.svg",
-    renderer: "cef" as const,
   },
   {
     id: "browser-webkit",
-    name: "WebKit Tab",
+    name: "WebKit",
     path: "__COLAB_TEMPLATE__/browser-webkit",
     icon: "views://assets/file-icons/webkit-logo.svg",
-    renderer: "system" as const,
   },
   {
     id: "terminal",
