@@ -510,6 +510,12 @@ export type WorkspaceRPC = {
         };
         response: boolean;
       };
+      showInFinder: {
+        params: {
+          path: string;
+        };
+        response: void;
+      };
       mkdir: {
         params: {
           path: string;

@@ -334,6 +334,15 @@ export interface AppState {
       connectedAt: number | undefined;
     };
   };
+  // Download notifications for web slates
+  downloadNotification: {
+    visible: boolean;
+    filename: string;
+    path: string;
+    status: 'downloading' | 'completed' | 'failed';
+    progress?: number; // 0-100 percentage
+    error?: string;
+  } | null;
 }
 
 const initialState: AppState = {
@@ -446,6 +455,7 @@ const initialState: AppState = {
       connectedAt: undefined,
     },
   },
+  downloadNotification: null,
 };
 
 const [state, setState] = createStore(initialState);

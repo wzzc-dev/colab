@@ -18,6 +18,7 @@ import type {
 } from "../../../shared/types/types";
 import { state, setState } from "../store";
 import { produce } from "solid-js/store";
+import { electrobun as electrobunImport } from "../init";
 import { getWindow } from "../store";
 
 import { getSlateForNode, getProjectForNodePath } from "../files";
@@ -841,6 +842,115 @@ console.log('Preload script loaded for:', window.location.href);
           value={webviewUrl()}
           onKeyDown={onUrlInputKeyDown}
         />
+        {/* Download indicator - shows when there's an active/completed download */}
+        <Show when={state.downloadNotification}>
+          {(() => {
+            const [showIcon, setShowIcon] = createSignal(false);
+
+            // When download completes, show checkmark briefly then switch to icon
+            createEffect(() => {
+              if (state.downloadNotification?.status === 'completed') {
+                setTimeout(() => setShowIcon(true), 1000);
+              } else {
+                setShowIcon(false);
+              }
+            });
+
+            return (
+              <button
+                class="browser-btn"
+                type="button"
+                onClick={async () => {
+                  const notification = state.downloadNotification;
+                  if (notification?.status === 'completed' && notification.path) {
+                    await electrobunImport.rpc?.request.showInFinder({ path: notification.path });
+                    setState("downloadNotification", null);
+                  } else if (notification?.status === 'failed') {
+                    setState("downloadNotification", null);
+                  }
+                }}
+                title={
+                  state.downloadNotification?.status === 'downloading'
+                    ? `Downloading: ${state.downloadNotification?.filename} (${state.downloadNotification?.progress || 0}%)`
+                    : state.downloadNotification?.status === 'completed'
+                    ? `Show ${state.downloadNotification?.filename} in Finder`
+                    : `Download failed: ${state.downloadNotification?.filename}`
+                }
+              >
+                <Show when={state.downloadNotification?.status === 'downloading'}>
+                  {/* Circular progress indicator */}
+                  <svg width="16" height="16" viewBox="0 0 18 18" style={{ transform: "rotate(-90deg)" }}>
+                    {/* Background circle */}
+                    <circle
+                      cx="9"
+                      cy="9"
+                      r="7"
+                      fill="none"
+                      stroke="#555"
+                      stroke-width="2"
+                    />
+                    {/* Progress circle */}
+                    <circle
+                      cx="9"
+                      cy="9"
+                      r="7"
+                      fill="none"
+                      stroke="#4ade80"
+                      stroke-width="2"
+                      stroke-dasharray={`${(state.downloadNotification?.progress || 0) * 0.44} 44`}
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </Show>
+                <Show when={state.downloadNotification?.status === 'completed'}>
+                  <Show when={!showIcon()} fallback={
+                    /* Download folder icon - arrow into tray */
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                      {/* Down arrow */}
+                      <path
+                        d="M8 2v7M5 6l3 3 3-3"
+                        stroke="#aaa"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      {/* Tray/folder bottom */}
+                      <path
+                        d="M3 10v3h10v-3"
+                        stroke="#aaa"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  }>
+                    <svg width="12" height="12" viewBox="0 0 12 12">
+                      <path
+                        d="M2 6l3 3 5-6"
+                        fill="none"
+                        stroke="#4ade80"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </Show>
+                </Show>
+                <Show when={state.downloadNotification?.status === 'failed'}>
+                  <svg width="12" height="12" viewBox="0 0 12 12">
+                    <path
+                      d="M2 2l8 8M10 2l-8 8"
+                      fill="none"
+                      stroke="#f87171"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </Show>
+              </button>
+            );
+          })()}
+        </Show>
         {/* For quick access browser tabs, show "Save Browser Profile" button */}
         <Show when={isQuickBrowser()}>
           <button class="browser-btn" type="button" onClick={onClickSaveBrowserProfile} title="Save as Browser Profile">

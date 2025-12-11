@@ -785,6 +785,7 @@ const App = () => {
 					</div>
 				</div>
 			</Show>
+			{/* Download notification is now shown in WebSlate URL bar */}
 			<TopBar />
 			<div
 				style={{

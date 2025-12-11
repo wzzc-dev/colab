@@ -460,6 +460,50 @@ const rpc = Electroview.defineRPC<WorkspaceRPC>({
         // Remove a file from the open files list
         window.dispatchEvent(new CustomEvent('removeOpenFile', { detail: data }));
       },
+      downloadStarted: (data: { filename: string; path: string }) => {
+        setState("downloadNotification", {
+          visible: true,
+          filename: data.filename,
+          path: data.path,
+          status: 'downloading',
+          progress: 0,
+        });
+      },
+      downloadProgress: (data: { progress: number }) => {
+        // Only update progress if we're currently downloading
+        const current = state.downloadNotification;
+        if (current && current.status === 'downloading') {
+          setState("downloadNotification", {
+            ...current,
+            progress: data.progress,
+          });
+        }
+      },
+      downloadCompleted: (data: { filename: string; path: string }) => {
+        setState("downloadNotification", {
+          visible: true,
+          filename: data.filename,
+          path: data.path,
+          status: 'completed',
+        });
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+          setState("downloadNotification", null);
+        }, 5000);
+      },
+      downloadFailed: (data: { filename: string; path: string; error: string }) => {
+        setState("downloadNotification", {
+          visible: true,
+          filename: data.filename,
+          path: data.path,
+          status: 'failed',
+          error: data.error,
+        });
+        // Auto-hide after 8 seconds
+        setTimeout(() => {
+          setState("downloadNotification", null);
+        }, 8000);
+      },
       slateRender: (data: { instanceId: string; html?: string; script?: string }) => {
         // Notify slate components about render updates from plugins
         window.dispatchEvent(new CustomEvent('slateRender', { detail: data }));

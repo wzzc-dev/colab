@@ -770,7 +770,55 @@ const broadcastToElectrobunWindow = (nativeWindowId, method, opts) => {
   
 // })
 
-Electrobun.events.on("context-menu-clicked", (e) => {  
+// Download events from webviews
+Electrobun.events.on("download-started", (e) => {
+  const { id: webviewId, detail } = e.data;
+  const { filename, path } = detail;
+  console.log(`Download started: ${filename} -> ${path}`);
+
+  // Find which window this webview belongs to and broadcast to it
+  const webview = Electrobun.BrowserView.getById(webviewId);
+  if (webview) {
+    broadcastToElectrobunWindow(webview.windowId, "downloadStarted", { filename, path });
+  }
+});
+
+Electrobun.events.on("download-progress", (e) => {
+  const { id: webviewId, detail } = e.data;
+  const { progress } = detail;
+
+  // Find which window this webview belongs to and broadcast to it
+  const webview = Electrobun.BrowserView.getById(webviewId);
+  if (webview) {
+    broadcastToElectrobunWindow(webview.windowId, "downloadProgress", { progress });
+  }
+});
+
+Electrobun.events.on("download-completed", (e) => {
+  const { id: webviewId, detail } = e.data;
+  const { filename, path } = detail;
+  console.log(`Download completed: ${filename} -> ${path}`);
+
+  // Find which window this webview belongs to and broadcast to it
+  const webview = Electrobun.BrowserView.getById(webviewId);
+  if (webview) {
+    broadcastToElectrobunWindow(webview.windowId, "downloadCompleted", { filename, path });
+  }
+});
+
+Electrobun.events.on("download-failed", (e) => {
+  const { id: webviewId, detail } = e.data;
+  const { filename, path, error } = detail;
+  console.log(`Download failed: ${filename} - ${error}`);
+
+  // Find which window this webview belongs to and broadcast to it
+  const webview = Electrobun.BrowserView.getById(webviewId);
+  if (webview) {
+    broadcastToElectrobunWindow(webview.windowId, "downloadFailed", { filename, path, error });
+  }
+});
+
+Electrobun.events.on("context-menu-clicked", (e) => {
   const action = e.data.action;
   const data = e.data.data || {};
 
@@ -1730,6 +1778,9 @@ const createWindow = (workspaceId: string, window?: WindowConfigType, offset?: {
         },
         exists: ({ path }) => {
           return existsSync(path);
+        },
+        showInFinder: ({ path }) => {
+          Utils.showItemInFolder(path);
         },
         mkdir: ({ path }) => {
           try {
