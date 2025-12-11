@@ -149,7 +149,7 @@ export const createModel = async (absolutePath: string) => {
     setState(
       produce((_state: AppState) => {
         const node = _state.fileCache[absolutePath];
-        if (node.type === "file") {
+        if (node && node.type === "file") {
           node.model = model;
           node.persistedContent = contents;
           node.isCached = true; // Mark file as loaded so external changes trigger editor updates

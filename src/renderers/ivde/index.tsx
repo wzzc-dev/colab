@@ -43,6 +43,7 @@ import {
 	type TerminalTabType,
 	type WebTabType,
 	type WindowType,
+	addOpenFile,
 	closeTab,
 	editNodeSettings,
 	focusTabWithId,
@@ -53,8 +54,10 @@ import {
 	getRootPane,
 	getUniqueId,
 	getWindow,
+	openFileAt,
 	openNewTab,
 	openNewTabForNode,
+	removeOpenFile,
 	removeProjectFromColab,
 	setNodeExpanded,
 	setPreviewNode,
@@ -85,6 +88,7 @@ import type {
 
 import {
 	FindAllResultsTree,
+	OpenFilesTree,
 	ProjectsTree,
 	TemplateNodes,
 	createContextMenuAction,
@@ -603,6 +607,75 @@ const App = () => {
 			shadowRoot = shadowHost.attachShadow({ mode: "open" });
 			render(() => <Workbench />, shadowRoot);
 		}
+
+		// Listen for openFileInEditor events from the main process
+		const handleOpenFileInEditor = async (e: CustomEvent<{ filePath: string; createIfNotExists?: boolean }>) => {
+			const { filePath } = e.detail;
+			const fileName = filePath.split('/').pop() || filePath;
+
+			// Check if file is within a project
+			const projects = Object.values(state.projects);
+			const isInProject = projects.some(project =>
+				filePath.startsWith(project.path + '/') || filePath === project.path
+			);
+
+			// For non-project files, we need to fetch the node and cache it first
+			// since the FileWatcher doesn't track these files
+			if (!state.fileCache[filePath]) {
+				const node = await electrobun.rpc?.request.getNode({ path: filePath });
+				if (node) {
+					setState("fileCache", filePath, node);
+				} else {
+					// File doesn't exist or couldn't be accessed
+					console.error('Could not get node for file:', filePath);
+					return;
+				}
+			}
+
+			if (!isInProject) {
+				// Add to open files list
+				addOpenFile(filePath, fileName, 'file');
+			}
+
+			// Defer opening the file to ensure state updates have propagated
+			// This is needed because SolidJS state updates may be batched
+			queueMicrotask(() => {
+				openFileAt(filePath, 1, 1);
+			});
+		};
+
+		// Listen for openFolderAsProject events from the main process
+		const handleOpenFolderAsProject = async (e: CustomEvent<{ folderPath: string }>) => {
+			const { folderPath } = e.detail;
+			const folderName = folderPath.split('/').pop() || folderPath;
+
+			// Check if project already exists
+			const existingProject = Object.values(state.projects).find(p => p.path === folderPath);
+			if (existingProject) {
+				console.log('Project already exists:', folderPath);
+				return;
+			}
+
+			// Add as a new project via RPC
+			try {
+				await electrobun.rpc?.request.addProject({
+					projectName: folderName,
+					path: folderPath,
+				});
+			} catch (err) {
+				console.error('Failed to add project:', err);
+			}
+		};
+
+		// Listen for removeOpenFile events from the main process (context menu)
+		const handleRemoveOpenFile = (e: CustomEvent<{ filePath: string }>) => {
+			const { filePath } = e.detail;
+			removeOpenFile(filePath);
+		};
+
+		window.addEventListener('openFileInEditor', handleOpenFileInEditor as EventListener);
+		window.addEventListener('openFolderAsProject', handleOpenFolderAsProject as EventListener);
+		window.addEventListener('removeOpenFile', handleRemoveOpenFile as EventListener);
 	});
 
 	const [isLoaded, setIsLoaded] = createSignal(false);
@@ -610,8 +683,55 @@ const App = () => {
 		setIsLoaded(true);
 	}, 400);
 
+	// Drag and drop state
+	const [isDraggingOver, setIsDraggingOver] = createSignal(false);
+	let dragCounter = 0;
+
+	const handleDragEnter = (e: DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		// Disabled: Native file drag-and-drop is not supported in CEF/Chromium webviews
+		// dragCounter++;
+		// if (e.dataTransfer?.types.includes('Files')) {
+		// 	setIsDraggingOver(true);
+		// }
+	};
+
+	const handleDragLeave = (e: DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		dragCounter--;
+		if (dragCounter === 0) {
+			setIsDraggingOver(false);
+		}
+	};
+
+	const handleDragOver = (e: DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (e.dataTransfer) {
+			e.dataTransfer.dropEffect = 'copy';
+		}
+	};
+
+	const handleDrop = async (e: DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		dragCounter = 0;
+		setIsDraggingOver(false);
+
+		// NOTE: Native file drag-and-drop is not supported in CEF/Chromium webviews
+		// because the browser doesn't expose full file paths for security reasons.
+		// Users should use File > Open or the `edit` terminal command instead.
+		// TODO: Implement native drop handling at the Electrobun/main process level
+	};
+
 	return (
 		<div
+			onDragEnter={handleDragEnter}
+			onDragLeave={handleDragLeave}
+			onDragOver={handleDragOver}
+			onDrop={handleDrop}
 			style={{
 				height: "100vh", //"calc(100vh - 40px)",
 				display: "flex",
@@ -619,6 +739,7 @@ const App = () => {
 				transition: "opacity 1000ms linear",
 				"flex-direction": "column",
 				"-webkit-user-select": "none",
+				position: "relative",
 
 				// "align-items": "flex-start",
 				// height: "100vh",
@@ -631,6 +752,39 @@ const App = () => {
 					"Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif",
 			}}
 		>
+			{/* Drop overlay */}
+			<Show when={isDraggingOver()}>
+				<div
+					style={{
+						position: "absolute",
+						top: 0,
+						left: 0,
+						right: 0,
+						bottom: 0,
+						background: "rgba(0, 120, 215, 0.2)",
+						border: "3px dashed rgba(0, 120, 215, 0.8)",
+						"border-radius": "8px",
+						"z-index": 10000,
+						display: "flex",
+						"align-items": "center",
+						"justify-content": "center",
+						"pointer-events": "none",
+					}}
+				>
+					<div
+						style={{
+							background: "rgba(0, 0, 0, 0.7)",
+							color: "white",
+							padding: "20px 40px",
+							"border-radius": "8px",
+							"font-size": "18px",
+							"font-weight": "500",
+						}}
+					>
+						Drop files to open or folders to add as projects
+					</div>
+				</div>
+			</Show>
 			<TopBar />
 			<div
 				style={{
@@ -4038,6 +4192,7 @@ const Sidebar = () => {
 					) : (
 						<>
 							<TemplateNodes />
+							<OpenFilesTree />
 							<ProjectsTree />
 						</>
 					)}

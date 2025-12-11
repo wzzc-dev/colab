@@ -300,6 +300,14 @@ export interface AppState {
       [projectId: string]: string[];
     };
   };
+  // Files opened outside of any project (via edit command, Open menu, or drag-drop)
+  openFiles: {
+    [absolutePath: string]: {
+      name: string;
+      type: 'file' | 'dir';
+      addedAt: number;
+    };
+  };
   appSettings: {
     analyticsEnabled?: boolean;
     analyticsConsentPrompted?: boolean;
@@ -413,6 +421,7 @@ const initialState: AppState = {
     query: "",
     results: {},
   },
+  openFiles: {},
   appSettings: {
     llama: {
       enabled: true,
@@ -1233,4 +1242,35 @@ export const openFileAt = (path: string, line: number, column: number) => {
     editor.setSelection(selection);
     editor.revealLineInCenter(selection.startLineNumber);
   }
+};
+
+// Functions for managing non-project open files
+export const addOpenFile = (absolutePath: string, name: string, type: 'file' | 'dir') => {
+  setState(
+    produce((_state: AppState) => {
+      _state.openFiles[absolutePath] = {
+        name,
+        type,
+        addedAt: Date.now(),
+      };
+    })
+  );
+};
+
+export const removeOpenFile = (absolutePath: string) => {
+  setState(
+    produce((_state: AppState) => {
+      delete _state.openFiles[absolutePath];
+    })
+  );
+};
+
+export const isFileInProject = (absolutePath: string): boolean => {
+  const projects = state.projects;
+  for (const project of Object.values(projects)) {
+    if (absolutePath.startsWith(project.path + '/') || absolutePath === project.path) {
+      return true;
+    }
+  }
+  return false;
 };

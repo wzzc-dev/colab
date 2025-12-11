@@ -448,6 +448,18 @@ const rpc = Electroview.defineRPC<WorkspaceRPC>({
         // Notify all terminal components about terminal exit
         window.dispatchEvent(new CustomEvent('terminalExit', { detail: data }));
       },
+      openFileInEditor: (data: { filePath: string; createIfNotExists?: boolean }) => {
+        // Open a file in the editor (from edit command, Open menu, or drag-drop)
+        window.dispatchEvent(new CustomEvent('openFileInEditor', { detail: data }));
+      },
+      openFolderAsProject: (data: { folderPath: string }) => {
+        // Add a folder as a project
+        window.dispatchEvent(new CustomEvent('openFolderAsProject', { detail: data }));
+      },
+      removeOpenFile: (data: { filePath: string }) => {
+        // Remove a file from the open files list
+        window.dispatchEvent(new CustomEvent('removeOpenFile', { detail: data }));
+      },
       slateRender: (data: { instanceId: string; html?: string; script?: string }) => {
         // Notify slate components about render updates from plugins
         window.dispatchEvent(new CustomEvent('slateRender', { detail: data }));

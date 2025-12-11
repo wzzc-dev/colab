@@ -1065,6 +1065,23 @@ export type WorkspaceRPC = {
         exitCode: number;
         signal?: number;
       };
+      // Open a file in the editor (from edit command, Open menu, or drag-drop)
+      openFileInEditor: {
+        filePath: string;
+        createIfNotExists?: boolean;
+      };
+      // Open a folder as a project
+      openFolderAsProject: {
+        folderPath: string;
+      };
+      // Open a terminal at a specific directory
+      newTerminal: {
+        nodePath: string;
+      };
+      // Remove a file from the open files list
+      removeOpenFile: {
+        filePath: string;
+      };
     };
   }>;
 };

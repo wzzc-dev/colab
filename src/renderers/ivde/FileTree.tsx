@@ -37,6 +37,7 @@ import {
   setState,
   state,
   updateSyncedState,
+  removeOpenFile,
 } from "./store";
 
 import { electrobun } from "./init";
@@ -494,6 +495,176 @@ export const ProjectsTree = () => {
         }}
       </For>
     </>
+  );
+};
+
+// Component for displaying files opened outside of projects
+const OpenFileItem = ({ path, file }: { path: string; file: { name: string; type: 'file' | 'dir'; addedAt: number } }) => {
+  const [isHovered, setIsHovered] = createSignal(false);
+
+  const isSelected = () => {
+    const currentTab = getCurrentTab(state);
+    return currentTab?.path === path;
+  };
+
+  const handleClick = async (e: MouseEvent) => {
+    e.stopPropagation();
+    if (file.type === 'file') {
+      // For non-project files, we need to ensure the node is cached first
+      if (!state.fileCache[path]) {
+        const node = await electrobun.rpc?.request.getNode({ path });
+        if (node) {
+          setState("fileCache", path, node);
+        } else {
+          console.error('Could not get node for file:', path);
+          return;
+        }
+      }
+      openFileAt(path, 1, 1);
+    } else {
+      openNewTerminalTab(path);
+    }
+  };
+
+  const handleContextMenu = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    electrobun.rpc?.request.showContextMenu({
+      menuItems: [
+        {
+          label: "Open",
+          ...createContextMenuAction("open_open_file", { filePath: path }),
+        },
+        {
+          label: "Copy Path to Clipboard",
+          ...createContextMenuAction("copy_path_to_clipboard", { nodePath: path }),
+        },
+        { type: "separator" },
+        {
+          label: "Remove from List",
+          ...createContextMenuAction("remove_open_file", { filePath: path }),
+        },
+        {
+          label: "Open in Finder",
+          ...createContextMenuAction("open_node_in_finder", { nodePath: path }),
+        },
+      ],
+    });
+  };
+
+  const getIcon = () => {
+    if (file.type === 'dir') {
+      return 'views://assets/file-icons/folder.svg';
+    }
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'ts':
+      case 'tsx':
+        return 'views://assets/file-icons/tsx.svg';
+      case 'js':
+        return 'views://assets/file-icons/js.svg';
+      case 'css':
+        return 'views://assets/file-icons/css.svg';
+      case 'json':
+        return 'views://assets/file-icons/json.svg';
+      case 'md':
+        return 'views://assets/file-icons/markdown.svg';
+      default:
+        return 'views://assets/file-icons/txt.svg';
+    }
+  };
+
+  return (
+    <div
+      onClick={handleClick}
+      onContextMenu={handleContextMenu}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      title={path}
+      style={{
+        display: "flex",
+        "align-items": "center",
+        padding: "4px 8px 4px 16px",
+        cursor: "pointer",
+        background: isSelected() ? "rgba(0, 150, 255, 0.3)" : isHovered() ? "rgba(0, 0, 0, 0.1)" : "transparent",
+        "user-select": "none",
+        margin: "2px 8px",
+        "border-radius": "4px",
+      }}
+    >
+      <img
+        src={getIcon()}
+        style={{
+          width: "16px",
+          height: "16px",
+          "margin-right": "8px",
+        }}
+      />
+      <span
+        style={{
+          "font-size": "13px",
+          color: "#333",
+          "font-family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+          overflow: "hidden",
+          "text-overflow": "ellipsis",
+          "white-space": "nowrap",
+          flex: "1",
+        }}
+      >
+        {file.name}
+      </span>
+      <Show when={isHovered()}>
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            removeOpenFile(path);
+          }}
+          style={{
+            padding: "0px 4px",
+            border: "1px solid rgba(0, 0, 0, 0.2)",
+            margin: "0 2px",
+            color: "rgba(0, 0, 0, 0.6)",
+            "min-width": "16px",
+            height: "16px",
+            background: "rgba(0, 0, 0, 0.06)",
+            "text-align": "center",
+            "line-height": "15px",
+            cursor: "pointer",
+            "border-radius": "3px",
+            "font-size": "11px",
+            "font-weight": "500",
+          }}
+          title="Remove from list"
+        >
+          ×
+        </div>
+      </Show>
+    </div>
+  );
+};
+
+export const OpenFilesTree = () => {
+  const openFilesArray = () => {
+    return Object.entries(state.openFiles).map(([path, file]) => ({ path, ...file }));
+  };
+
+  const hasOpenFiles = () => Object.keys(state.openFiles).length > 0;
+
+  return (
+    <Show when={hasOpenFiles()}>
+      <CategoryRow label="Open Files" />
+      <div style={{ "margin-bottom": "12px" }}>
+        <For each={openFilesArray()}>
+          {(item) => (
+            <OpenFileItem
+              path={item.path}
+              file={{ name: item.name, type: item.type, addedAt: item.addedAt }}
+            />
+          )}
+        </For>
+      </div>
+    </Show>
   );
 };
 

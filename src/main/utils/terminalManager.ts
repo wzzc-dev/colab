@@ -46,12 +46,21 @@ type PluginCommandExecutor = (
   write: (text: string) => void
 ) => Promise<boolean>;
 
+// Built-in command handler type (for edit command, etc.)
+type BuiltinCommandHandler = (
+  args: string[],
+  terminalId: string,
+  cwd: string,
+  write: (text: string) => void
+) => Promise<boolean>;
+
 class TerminalManager {
   private terminals: Map<string, TerminalSession> = new Map();
   private terminalToWindow: Map<string, string> = new Map(); // terminalId -> windowId
   private windowHandlers: Map<string, (message: any) => void> = new Map(); // windowId -> handler
   private pluginCommandChecker?: PluginCommandChecker;
   private pluginCommandExecutor?: PluginCommandExecutor;
+  private editCommandHandler?: BuiltinCommandHandler;
 
   /**
    * @deprecated Use setWindowMessageHandler instead for proper multi-window support
@@ -93,6 +102,64 @@ class TerminalManager {
   ) {
     this.pluginCommandChecker = checker;
     this.pluginCommandExecutor = executor;
+  }
+
+  /**
+   * Set the handler for the built-in 'edit' command
+   */
+  setEditCommandHandler(handler: BuiltinCommandHandler) {
+    this.editCommandHandler = handler;
+  }
+
+  /**
+   * Check if a command line is the built-in 'edit' command
+   * Returns the file path argument if it matches, null otherwise
+   */
+  private checkEditCommand(commandLine: string): string[] | null {
+    const trimmed = commandLine.trim();
+    // Match 'edit <path>' or 'colab <path>'
+    const editMatch = trimmed.match(/^edit\s+(.+)$/);
+    const colabMatch = trimmed.match(/^colab\s+(.+)$/);
+
+    if (editMatch) {
+      // Parse arguments (handle quoted paths, multiple files, etc.)
+      return this.parseEditArgs(editMatch[1]);
+    }
+    if (colabMatch) {
+      return this.parseEditArgs(colabMatch[1]);
+    }
+    return null;
+  }
+
+  /**
+   * Parse edit command arguments, handling quoted paths
+   */
+  private parseEditArgs(argsString: string): string[] {
+    const args: string[] = [];
+    let current = '';
+    let inQuote = false;
+    let quoteChar = '';
+
+    for (const char of argsString) {
+      if (!inQuote && (char === '"' || char === "'")) {
+        inQuote = true;
+        quoteChar = char;
+      } else if (inQuote && char === quoteChar) {
+        inQuote = false;
+        quoteChar = '';
+      } else if (!inQuote && char === ' ') {
+        if (current) {
+          args.push(current);
+          current = '';
+        }
+      } else {
+        current += char;
+      }
+    }
+    if (current) {
+      args.push(current);
+    }
+    return args;
   }
 
   createTerminal(cwd: string = process.cwd(), shell?: string, cols: number = 80, rows: number = 24, windowId?: string): string {
@@ -320,12 +387,48 @@ class TerminalManager {
     try {
       const messageHandler = this.getMessageHandler(terminalId);
 
-      // Check for plugin command interception
-      if (this.pluginCommandChecker && this.pluginCommandExecutor) {
-        // Handle special characters
-        if (data === '\r' || data === '\n') {
-          // Enter pressed - check if buffer matches a plugin command
-          const commandLine = terminal.inputBuffer.trim();
+      // Check for built-in and plugin command interception
+      // Handle special characters
+      if (data === '\r' || data === '\n') {
+        // Enter pressed - check if buffer matches a built-in or plugin command
+        const commandLine = terminal.inputBuffer.trim();
+
+        // Check for built-in 'edit' command first
+        const editArgs = this.checkEditCommand(commandLine);
+        if (editArgs && editArgs.length > 0 && this.editCommandHandler) {
+          // Clear the buffer
+          terminal.inputBuffer = '';
+
+          // Echo newline to terminal
+          messageHandler?.({
+            type: "terminalOutput",
+            terminalId,
+            data: '\r\n',
+          });
+
+          // Execute edit command
+          const write = (text: string) => {
+            messageHandler?.({
+              type: "terminalOutput",
+              terminalId,
+              data: text,
+            });
+          };
+
+          const cwd = terminal.currentCwd || terminal.cwd;
+          this.editCommandHandler(editArgs, terminalId, cwd, write).then(() => {
+            // Show a new prompt after command completes
+            this.sendPtyMessage(terminalId, {
+              type: 'input',
+              input: { data: '' }
+            });
+          });
+
+          return true;
+        }
+
+        // Check for plugin command
+        if (this.pluginCommandChecker && this.pluginCommandExecutor) {
           const pluginCommand = this.pluginCommandChecker(commandLine);
 
           if (pluginCommand) {
@@ -360,22 +463,22 @@ class TerminalManager {
 
             return true;
           }
-
-          // Not a plugin command, clear buffer and send to PTY
-          terminal.inputBuffer = '';
-        } else if (data === '\x7f' || data === '\b') {
-          // Backspace - remove last char from buffer
-          terminal.inputBuffer = terminal.inputBuffer.slice(0, -1);
-        } else if (data === '\x03') {
-          // Ctrl+C - clear buffer
-          terminal.inputBuffer = '';
-        } else if (data === '\x15') {
-          // Ctrl+U - clear line/buffer
-          terminal.inputBuffer = '';
-        } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
-          // Regular printable character - add to buffer
-          terminal.inputBuffer += data;
         }
+
+        // Not a built-in or plugin command, clear buffer and send to PTY
+        terminal.inputBuffer = '';
+      } else if (data === '\x7f' || data === '\b') {
+        // Backspace - remove last char from buffer
+        terminal.inputBuffer = terminal.inputBuffer.slice(0, -1);
+      } else if (data === '\x03') {
+        // Ctrl+C - clear buffer
+        terminal.inputBuffer = '';
+      } else if (data === '\x15') {
+        // Ctrl+U - clear line/buffer
+        terminal.inputBuffer = '';
+      } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
+        // Regular printable character - add to buffer
+        terminal.inputBuffer += data;
       }
 
       // Send input to PTY binary

@@ -187,6 +187,49 @@ terminalManager.setPluginCommandHandlers(
   (commandLine, terminalId, cwd, write) => pluginManager.executeTerminalCommand(commandLine, terminalId, cwd, write)
 );
 
+// Wire up built-in 'edit' command to terminal manager
+terminalManager.setEditCommandHandler(async (args, terminalId, cwd, write) => {
+  for (const arg of args) {
+    // Expand ~ to home directory
+    let expandedArg = arg;
+    if (arg.startsWith('~/')) {
+      expandedArg = path.join(process.env.HOME || '', arg.slice(2));
+    } else if (arg === '~') {
+      expandedArg = process.env.HOME || '';
+    }
+
+    // Resolve path relative to terminal's current directory
+    const filePath = path.isAbsolute(expandedArg) ? expandedArg : path.join(cwd, expandedArg);
+
+    // Check if file/folder exists
+    const exists = existsSync(filePath);
+    const isDir = exists && statSync(filePath).isDirectory();
+
+    if (isDir) {
+      // For directories, add as project
+      const folderName = basename(filePath);
+      write(`Adding project: ${folderName}\r\n`);
+      sendToFocusedWindow("openFolderAsProject", { folderPath: filePath });
+    } else {
+      // For files (existing or new)
+      if (!exists) {
+        // Create the file if it doesn't exist
+        try {
+          writeFileSync(filePath, "", { encoding: "utf-8" });
+          write(`Created: ${filePath}\r\n`);
+        } catch (err) {
+          write(`\x1b[31mError creating file: ${err.message}\x1b[0m\r\n`);
+          continue;
+        }
+      }
+
+      write(`Opening: ${arg}\r\n`);
+      sendToFocusedWindow("openFileInEditor", { filePath, createIfNotExists: false });
+    }
+  }
+  return true;
+});
+
 // END SETUP
 const checkForUpdate = async () => {
   try {
@@ -381,6 +424,19 @@ function updateApplicationMenu() {
       submenu: [
         {
           type: "normal",
+          label: "Open File...",
+          action: "open-file",
+          accelerator: "o",
+        },
+        {
+          type: "normal",
+          label: "Open Folder...",
+          action: "open-folder",
+          accelerator: "shift+o",
+        },
+        { type: "separator" },
+        {
+          type: "normal",
           label: "New Browser Tab",
           action: "new-browser-tab",
           accelerator: "t",
@@ -565,6 +621,34 @@ ApplicationMenu.on("application-menu-clicked", (e) => {
     createAboutWindow("https://colab.dev/privacy");
   } else if (action === "acknowledgements") {
     createAboutWindow("views://assets/licenses.html");
+  } else if (action === "open-file") {
+    // Open file dialog and send file to editor
+    (async () => {
+      const files = await Utils.openFileDialog({
+        startingFolder: process.env.HOME || "/",
+        allowedFileTypes: "",
+        canChooseFiles: true,
+        canChooseDirectory: false,
+        allowsMultipleSelection: true,
+      });
+      for (const filePath of files) {
+        sendToFocusedWindow("openFileInEditor", { filePath, createIfNotExists: false });
+      }
+    })();
+  } else if (action === "open-folder") {
+    // Open folder dialog and add as project
+    (async () => {
+      const folders = await Utils.openFileDialog({
+        startingFolder: process.env.HOME || "/",
+        allowedFileTypes: "",
+        canChooseFiles: false,
+        canChooseDirectory: true,
+        allowsMultipleSelection: false,
+      });
+      for (const folderPath of folders) {
+        sendToFocusedWindow("openFolderAsProject", { folderPath });
+      }
+    })();
   } else if (action === "open-command-palette") {
     // Send to focused window only (not all windows)
     sendToFocusedWindow("openCommandPalette", {});
@@ -781,6 +865,14 @@ Electrobun.events.on("context-menu-clicked", (e) => {
       pathToPane,
       direction,
     });
+  } else if (action === "remove_open_file") {
+    const { workspaceId, windowId, filePath } = data;
+    // This is handled in the renderer - broadcast the event
+    broadcastToWindow(workspaceId, windowId, "removeOpenFile", { filePath });
+  } else if (action === "open_open_file") {
+    const { workspaceId, windowId, filePath } = data;
+    // Open the file in the editor
+    broadcastToWindow(workspaceId, windowId, "openFileInEditor", { filePath, createIfNotExists: false });
   }
 });
 

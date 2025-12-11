@@ -252,6 +252,11 @@ export const getSlateForNode = (
     return node.slate;
   }
 
+  // Guard against nodes with undefined path
+  if (!node.path) {
+    return undefined;
+  }
+
   if (node.path.startsWith("__COLAB_INTERNAL__")) {
     if (node.path === "__COLAB_INTERNAL__/web") {
       return {

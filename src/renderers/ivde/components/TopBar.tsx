@@ -307,7 +307,7 @@ const CommandPalette = ({ setOpen }: { setOpen: (value: boolean) => void }) => {
           const project = getProjectForNodePath(tab.path);
           const name = basename(tab.path);
           const folder = dirname(tab.path).replace(project?.path || "", "");
-          const projectName = project?.name || basename(project?.path);
+          const projectName = project?.name || (project?.path ? basename(project.path) : "");
           if (name.match(queryRegex)) {
             acc.push({
               name: name,
