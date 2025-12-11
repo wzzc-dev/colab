@@ -93,11 +93,6 @@ export const watchProjectDirectories = () => {
             return;
           }
 
-          // files to ignore for changes
-          if (absolutePath.match("/.git/") && !absolutePath.match("hooks")) {
-            return;
-          }
-
           // Ignore node_modules to prevent performance issues during npm/bun install
           if (absolutePath.includes("/node_modules/")) {
             return;

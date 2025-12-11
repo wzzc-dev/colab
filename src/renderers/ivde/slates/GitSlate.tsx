@@ -102,9 +102,34 @@ export const GitSlate = ({ node }: { node?: CachedFileType }) => {
   createEffect(() => {
     if (state.lastFileChange) {
       const absolutePath = state.lastFileChange;
-      // files to ignore for changes
-      if (absolutePath.match("/.git/") && !absolutePath.match("hooks")) {
+
+      // Check if this change is relevant to this git repo
+      const isInThisRepo = absolutePath.startsWith(repoRootPath);
+      if (!isInThisRepo) {
         return;
+      }
+
+      // For .git/ folder changes, only react to meaningful ones (not lock files, etc.)
+      if (absolutePath.includes("/.git/")) {
+        // Ignore lock files - they're temporary and cause infinite loops
+        if (absolutePath.endsWith(".lock")) {
+          return;
+        }
+
+        // React to changes that indicate git state changed (commits, refs, index, etc.)
+        const isGitStateChange =
+          absolutePath.includes("/.git/refs/") ||
+          absolutePath.endsWith("/.git/HEAD") ||
+          absolutePath.endsWith("/.git/index") ||
+          absolutePath.endsWith("/.git/COMMIT_EDITMSG") ||
+          absolutePath.endsWith("/.git/FETCH_HEAD") ||
+          absolutePath.endsWith("/.git/ORIG_HEAD") ||
+          absolutePath.includes("/.git/logs/") ||
+          absolutePath.includes("/.git/hooks/");
+
+        if (!isGitStateChange) {
+          return;
+        }
       }
 
       clearTimeout(refreshLogAndStageTimeout);
@@ -114,8 +139,12 @@ export const GitSlate = ({ node }: { node?: CachedFileType }) => {
         // the DiffEditor component. The diff content comparison in setUiState
         // will prevent unnecessary re-renders.
       }, 100);
-      // getLogAndStage();
     }
+  });
+
+  // Cleanup timeout on component unmount
+  onCleanup(() => {
+    clearTimeout(refreshLogAndStageTimeout);
   });
 
   // startWatching();
@@ -1413,49 +1442,6 @@ export const GitSlate = ({ node }: { node?: CachedFileType }) => {
     });
   });
 
-  // File watcher integration for auto-refresh
-  let refreshTimeout: any = null;
-  createEffect(() => {
-    const lastFileChange = state.lastFileChange;
-    
-    // Only refresh if a file changed within this git repository (skip null values)
-    if (lastFileChange && typeof lastFileChange === 'string' && lastFileChange.startsWith(repoRootPath)) {
-      console.log('Git slate detected file change:', lastFileChange);
-      
-      // Debounce to avoid excessive refreshes (300ms delay)
-      if (refreshTimeout) {
-        clearTimeout(refreshTimeout);
-      }
-      
-      refreshTimeout = setTimeout(async () => {
-        console.log('Auto-refreshing git status due to file change');
-        
-        // Capture current diff state before refresh
-        const currentFile = selectedFile();
-        
-        // Refresh git status first
-        await getLogAndStatus();
-        
-        // If we have a file currently displayed, refresh its diff immediately
-        if (currentFile && currentFile.relPath && currentFile.changeType) {
-          console.log('Refreshing current diff for:', currentFile.relPath);
-          await onClickChange({
-            changeType: currentFile.changeType,
-            relPath: currentFile.relPath
-          }, currentFile.commitHash, currentFile.isFromStaged);
-        }
-        
-        refreshTimeout = null;
-      }, 300);
-    }
-  });
-
-  // Cleanup timeout on component unmount
-  onCleanup(() => {
-    if (refreshTimeout) {
-      clearTimeout(refreshTimeout);
-    }
-  });
 
   // setTimeout(() => {
   // getLogAndStage({ justStage: true });
