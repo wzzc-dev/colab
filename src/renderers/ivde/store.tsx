@@ -708,16 +708,14 @@ export const openNewTab = (
           // to a not-preview tab and open the new one next to it
           win.tabs[currentTabId].isPreview = false;
         } else {
-          // if we're clicking through stuff and the current tab is a preview tab
-          // the replace its contents with the new node
-          const previewTabToReplace = win.tabs[currentTabId];
-          win.tabs[currentTabId] = {
-            id: previewTabToReplace.id,
-            paneId: previewTabToReplace.paneId,
-            isPreview: true,
-            ...config,
-          } as TabType;
-          return;
+          // if we're clicking through stuff and the current tab is a preview tab,
+          // close the old preview tab completely and let a new one be created below.
+          // This ensures proper component lifecycle (cleanup, fresh state, etc.)
+          delete win.tabs[currentTabId];
+          const tabIndex = pane.tabIds.indexOf(currentTabId);
+          if (tabIndex !== -1) {
+            pane.tabIds.splice(tabIndex, 1);
+          }
         }
       }
 
@@ -796,27 +794,22 @@ export const openNewTabForNode = (
       const existingTab = currentTabId ? win.tabs[currentTabId] : null;
 
       if (currentTabId && isPreview && existingTab && existingTab.isPreview) {
-        let updatedPreviewTab: TabType;
-
         if ("targetPaneId" in opts) {
           // if we're opening a node to a specific pane then just update the current preview Tab
           // to a not-preview tab
-          updatedPreviewTab = {
+          win.tabs[currentTabId] = {
             ...existingTab,
             isPreview: false,
           };
         } else {
-          // if we're clicking through stuff and the current tab is a preview tab
-          // the replace its contents with the new node
-
-          updatedPreviewTab = {
-            ...existingTab,
-            path: node.path,
-          };
-        }
-        if (focusNewTab) {
-          win.tabs[currentTabId] = updatedPreviewTab;
-          return;
+          // if we're clicking through stuff and the current tab is a preview tab,
+          // close the old preview tab completely and let a new one be created below.
+          // This ensures proper component lifecycle (cleanup, fresh state, etc.)
+          delete win.tabs[currentTabId];
+          const tabIndex = pane.tabIds.indexOf(currentTabId);
+          if (tabIndex !== -1) {
+            pane.tabIds.splice(tabIndex, 1);
+          }
         }
       }
 
