@@ -2838,7 +2838,7 @@ const createWindow = (workspaceId: string, window?: WindowConfigType, offset?: {
         visible,
       });
 
-      // trayMenu.getMenuItemById(workspace.id).checked = visible;
+      updateTrayMenu();
     }
   });
 console.log('---->222 creating main window')
