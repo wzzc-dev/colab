@@ -385,6 +385,17 @@ class TerminalManager {
     }
 
     try {
+      // Filter dangerous control characters from pasted content (multi-character input)
+      // Single character input is preserved to allow intentional Ctrl+D for EOF to running programs
+      // But pasted content should never contain EOF (\x04) as it can accidentally close the shell
+      if (data.length > 1) {
+        // Remove \x04 (Ctrl+D/EOF) from pasted content to prevent accidental shell exit
+        data = data.replace(/\x04/g, '');
+        // If filtering removed all content, nothing to send
+        if (data.length === 0) {
+          return true;
+        }
+      }
       const messageHandler = this.getMessageHandler(terminalId);
 
       // Check for built-in and plugin command interception
@@ -481,13 +492,31 @@ class TerminalManager {
         terminal.inputBuffer += data;
       }
 
-      // Send input to PTY binary
-      this.sendPtyMessage(terminalId, {
-        type: 'input',
-        input: {
-          data: data
+      // Send input to PTY binary, chunking large inputs to avoid buffer overflow
+      // The Zig PTY binary has an 8192 byte buffer. We chunk at 2048 to be safe
+      // because JSON escaping can significantly increase size (e.g., \n -> \\n, \x1b -> \\u001b)
+      const MAX_CHUNK_SIZE = 2048;
+
+      if (data.length <= MAX_CHUNK_SIZE) {
+        // Small input, send directly
+        this.sendPtyMessage(terminalId, {
+          type: 'input',
+          input: {
+            data: data
+          }
+        });
+      } else {
+        // Large input (paste), chunk it to avoid StreamTooLong error
+        for (let i = 0; i < data.length; i += MAX_CHUNK_SIZE) {
+          const chunk = data.slice(i, i + MAX_CHUNK_SIZE);
+          this.sendPtyMessage(terminalId, {
+            type: 'input',
+            input: {
+              data: chunk
+            }
+          });
         }
-      });
+      }
 
       return true;
     } catch (error) {
