@@ -134,8 +134,15 @@ export const gitValidateUrl = async (gitUrl: string) => {
       trimmed: false,
     }).env(gitEnv);
 
+    // Build ls-remote command with credential helper for private repos
+    const lsRemoteArgs: string[] = [];
+    if (hasOsxKeychainHelper) {
+      lsRemoteArgs.push('-c', `credential.helper=${OSXKEYCHAIN_HELPER}`);
+    }
+    lsRemoteArgs.push('ls-remote', gitUrl, 'HEAD');
+
     // ls-remote will fail if the repo doesn't exist or isn't accessible
-    await gitInstance.listRemote([gitUrl, 'HEAD']);
+    await gitInstance.raw(lsRemoteArgs);
     return { valid: true, error: null };
   } catch (error) {
     console.error('Git URL validation error:', error);
@@ -196,7 +203,14 @@ export const gitClone = async (repoPath: string, gitUrl: string, createMainBranc
         trimmed: false,
       }).env(gitEnv);
 
-      await gitInstance.clone(gitUrl, folderName);
+      // Build clone command with credential helper for private repos
+      const cloneArgs: string[] = [];
+      if (hasOsxKeychainHelper) {
+        cloneArgs.push('-c', `credential.helper=${OSXKEYCHAIN_HELPER}`);
+      }
+      cloneArgs.push('clone', gitUrl, folderName);
+
+      await gitInstance.raw(cloneArgs);
       return `Successfully cloned repository to ${repoPath}`;
     }
   } catch (error) {
