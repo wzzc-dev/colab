@@ -4,8 +4,13 @@ on:
   push:
     tags:
       - 'v*'
-    # Only allow builds with secrets from main branch and tags
-    # Forks and external PRs cannot access secrets
+    branches:
+      - main
+    paths:
+      # Only rebuild deps cache when versions change
+      - '.github/workflows/versions.env'
+  workflow_dispatch:
+    # Allows manual runs to warm the cache from main branch
 
 jobs:
   build-deps:
@@ -55,6 +60,8 @@ jobs:
   build:
     needs: build-deps
     runs-on: macos-15  # GitHub-hosted Apple Silicon runner
+    # Only run full build on tag pushes, not on main branch cache-warming runs
+    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Checkout code
@@ -206,8 +213,8 @@ jobs:
   publish-demo-plugin:
     needs: build
     runs-on: ubuntu-latest
-    # Only publish for stable releases (not canary)
-    if: ${{ !contains(github.ref, '-canary') }}
+    # Only publish for stable releases (not canary), and only on tag pushes
+    if: ${{ startsWith(github.ref, 'refs/tags/') && !contains(github.ref, '-canary') }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
