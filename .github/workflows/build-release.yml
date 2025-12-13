@@ -208,10 +208,6 @@ jobs:
     runs-on: ubuntu-latest
     # Only publish for stable releases (not canary)
     if: ${{ contains(github.ref, '-canary') }}
-    permissions:
-      contents: read
-      id-token: write  # Required for npm Trusted Publishing (OIDC)
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -219,7 +215,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '23'
+          node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Extract version from tag
@@ -237,4 +233,6 @@ jobs:
       - name: Publish to npm
         run: |
           cd test-plugin
-          npm publish --provenance --access public
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
