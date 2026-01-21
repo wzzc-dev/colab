@@ -216,7 +216,8 @@ document.addEventListener(
 			// cmd+t - open new web tab (uses CEF/Chromium by default)
 			e.preventDefault();
 			e.stopImmediatePropagation();
-			openNewTabForNode("__COLAB_TEMPLATE__/browser-chromium", false, {
+			const uniqueId = Math.random().toString(36).substring(2, 11);
+			openNewTabForNode(`__COLAB_TEMPLATE__/browser-chromium/${uniqueId}`, false, {
 				focusNewTab: true,
 			});
 		} else if (e.key === "w" && e.metaKey === true && e.shiftKey === true) {
