@@ -168,6 +168,11 @@ const confirmCloseWindow = () => {
 	electrobun.rpc?.send.closeWindow();
 };
 
+// Listen for close window dialog event from init.ts closeCurrentWindow handler
+window.addEventListener('showCloseWindowDialog', () => {
+	setCloseWindowDialogOpen(true);
+});
+
 document.addEventListener(
 	"keydown",
 	(e) => {
@@ -212,61 +217,9 @@ document.addEventListener(
 			e.preventDefault();
 			e.stopImmediatePropagation();
 			setState("ui", "showCommandPalette", true);
-		} else if (e.key === "t" && e.metaKey === true && !e.shiftKey) {
-			// cmd+t - open new web tab (uses CEF/Chromium by default)
-			e.preventDefault();
-			e.stopImmediatePropagation();
-			const uniqueId = Math.random().toString(36).substring(2, 11);
-			openNewTabForNode(`__COLAB_TEMPLATE__/browser-chromium/${uniqueId}`, false, {
-				focusNewTab: true,
-			});
-		} else if (e.key === "w" && e.metaKey === true && e.shiftKey === true) {
-			e.preventDefault();
-			e.stopImmediatePropagation();
-			const win = getWindow();
-			const tabCount = Object.keys(win?.tabs || {}).length;
-			if (tabCount > 0) {
-				setCloseWindowDialogOpen(true);
-			} else {
-				electrobun.rpc?.send.closeWindow();
-			}
-		} else if (e.key === "w" && e.metaKey === true) {
-			e.preventDefault();
-			e.stopImmediatePropagation();
-
-			const currentTab = getCurrentTab();
-			if (currentTab) {
-				closeTab(currentTab.id);
-			}
-
-			// if after closing the tab we no longer have a current tab
-			// or if we never had a currentTab focus the next tab and its pane
-			const win = getWindow();
-
-			if (!win) {
-				return;
-			}
-
-			const currentPane = getPaneWithId(state, win.currentPaneId);
-
-			if (currentPane?.type !== "pane") {
-				return;
-			}
-
-			if (!currentPane?.currentTabId) {
-				const tabArray = Object.values(win.tabs);
-				if (tabArray.length) {
-					const nextTab = tabArray[tabArray.length - 1];
-					focusTabWithId(nextTab.id);
-				} else {
-					// todo (yoav): show a message that there are no tabs left and to use cmd+shift+w to close the window
-					console.warn("Use cmd+shift+w to close the window");
-				}
-			}
-
-			// todo (yoav):
-			// todo (yoav): close current tab and select next tab in current or another pane
-			// todo (yoav): once all tabs are closed close the window
+		// cmd+t handled by application menu via newBrowserTab RPC
+		// cmd+w handled by application menu via closeCurrentTab RPC
+		// cmd+shift+w handled by application menu via closeCurrentWindow RPC
 		} else if (e.key === "r" && e.metaKey === true) {
 			// refresh the current tab
 			const currentTab = getCurrentTab();

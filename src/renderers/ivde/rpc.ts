@@ -1052,6 +1052,8 @@ export type WorkspaceRPC = {
       };
       openCommandPalette: void;
       newBrowserTab: void;
+      closeCurrentTab: void;
+      closeCurrentWindow: void;
       openSettings: {
         settingsType: string;
       };

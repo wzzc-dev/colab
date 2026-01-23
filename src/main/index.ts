@@ -444,13 +444,13 @@ function updateApplicationMenu() {
         {
           type: "normal",
           label: "Close Tab",
-          action: "global-shortcut:w",
+          action: "close-tab",
           accelerator: "w",
         },
         {
           type: "normal",
           label: "Close Window",
-          action: "global-shortcut:shift+w",
+          action: "close-window",
           accelerator: "shift+w",
         },
       ],
@@ -654,6 +654,10 @@ ApplicationMenu.on("application-menu-clicked", (e) => {
     sendToFocusedWindow("openCommandPalette", {});
   } else if (action === "new-browser-tab") {
     sendToFocusedWindow("newBrowserTab", {});
+  } else if (action === "close-tab") {
+    sendToFocusedWindow("closeCurrentTab", {});
+  } else if (action === "close-window") {
+    sendToFocusedWindow("closeCurrentWindow", {});
   } else if (action === "plugin-marketplace") {
     sendToFocusedWindow("openSettings", { settingsType: "plugin-marketplace" });
   } else if (action === "llama-settings") {

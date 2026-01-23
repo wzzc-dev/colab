@@ -18,6 +18,9 @@ import {
   splitPane,
   openNewTerminalTab,
   setNodeExpanded,
+  closeTab,
+  getCurrentTab,
+  getPaneWithId,
 } from "./store";
 import { produce, reconcile } from "solid-js/store";
 import { join, basename, dirname } from "../utils/pathUtils";
@@ -420,9 +423,44 @@ const rpc = Electroview.defineRPC<WorkspaceRPC>({
         setState("ui", "showCommandPalette", !state.ui.showCommandPalette);
       },
       newBrowserTab: () => {
-        openNewTabForNode("__COLAB_TEMPLATE__/browser-chromium", false, {
+        // console.log("[DEBUG] newBrowserTab handler called", new Error().stack);
+        // return;
+        const uniqueId = Math.random().toString(36).substring(2, 11);
+        openNewTabForNode(`__COLAB_TEMPLATE__/browser-chromium/${uniqueId}`, false, {
           focusNewTab: true,
         });
+      },
+      closeCurrentTab: () => {
+        const currentTab = getCurrentTab();
+        if (currentTab) {
+          closeTab(currentTab.id);
+        }
+
+        // If after closing the tab we no longer have a current tab,
+        // focus the next available tab
+        const win = getWindow();
+        if (!win) return;
+
+        const currentPane = getPaneWithId(state, win.currentPaneId);
+        if (currentPane?.type !== "pane") return;
+
+        if (!currentPane?.currentTabId) {
+          const tabArray = Object.values(win.tabs);
+          if (tabArray.length) {
+            const nextTab = tabArray[tabArray.length - 1];
+            focusTabWithId(nextTab.id);
+          }
+        }
+      },
+      closeCurrentWindow: () => {
+        const win = getWindow();
+        const tabCount = Object.keys(win?.tabs || {}).length;
+        if (tabCount > 0) {
+          // Dispatch event to show close window confirmation dialog
+          window.dispatchEvent(new CustomEvent('showCloseWindowDialog'));
+        } else {
+          electrobun.rpc?.send.closeWindow();
+        }
       },
       handleGlobalShortcut: ({ key, ctrl, shift, alt, meta }) => {
         // Dispatch a synthetic keyboard event to trigger the existing shortcut handlers

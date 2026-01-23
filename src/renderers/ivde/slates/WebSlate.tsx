@@ -63,11 +63,8 @@ const colabPreloadScript = `
     if (e.key === 'Tab' && e.ctrlKey) {
       shouldForward = true;
     }
-    // Cmd+W - close tab (prevent it from closing the whole window)
-    // Cmd+Shift+W - close window
-    if (e.key === 'w' && e.metaKey) {
-      shouldForward = true;
-    }
+    // Note: Cmd+W and Cmd+Shift+W are now handled by the application menu
+    // and should NOT be forwarded from the webview to avoid double-firing
     // Escape/Enter - for dialogs (but don't prevent default so they still work in websites)
     if (e.key === 'Escape' || e.key === 'Enter') {
       if (typeof window.__electrobunSendToHost === 'function') {
@@ -1285,7 +1282,7 @@ console.log('Preload script loaded for:', window.location.href);
           });
 
           webviewRef.on("new-window-open", (e: any) => {
-            console.log('new window open fired in webview')
+            console.log('----->>> new window open fired in webview')
             try {
               // const data = JSON.parse(e.detail)
               const targetUrl = e.detail.url;
