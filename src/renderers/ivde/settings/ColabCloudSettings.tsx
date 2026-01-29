@@ -323,7 +323,7 @@ export const ColabCloudSettings = (): JSXElement => {
 
   return (
     <div
-      style="background: #404040; color: #d9d9d9; height: 100vh; overflow: hidden; display: flex; flex-direction: column;"
+      style="background: var(--color-settings-body-bg, #404040); color: var(--color-settings-input-text); height: 100vh; overflow: hidden; display: flex; flex-direction: column;"
     >
       <form onSubmit={onSubmit} style="height: 100%; display: flex; flex-direction: column;">
         <SettingsPaneSaveClose label="Colab Cloud" />
@@ -331,7 +331,7 @@ export const ColabCloudSettings = (): JSXElement => {
         <div style="flex: 1; overflow-y: auto; padding: 0; margin-bottom: 60px;">
           <SettingsPaneFormSection label="Connection Status">
             <SettingsPaneField label="Status">
-              <div style="background: #202020; padding: 12px; color: #d9d9d9; font-size: 12px; border-radius: 4px; margin-bottom: 8px;">
+              <div style="background: #202020; padding: 12px; color: var(--color-settings-input-text); font-size: 12px; border-radius: 4px; margin-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                   <div style={{
                     width: "8px",
@@ -344,7 +344,7 @@ export const ColabCloudSettings = (): JSXElement => {
                   </span>
                 </div>
                 <Show when={connectionStatus()}>
-                  <div style="font-size: 11px; color: #999; margin-top: 4px;">
+                  <div style="font-size: 11px; color: var(--color-info-box-text); margin-top: 4px;">
                     {connectionStatus()}
                   </div>
                 </Show>
@@ -353,16 +353,16 @@ export const ColabCloudSettings = (): JSXElement => {
 
             <Show when={isConnected()}>
               <SettingsPaneField label="Account">
-                <div style="background: #2b2b2b; padding: 12px; border-radius: 4px;">
+                <div style="background: var(--color-settings-input-bg); padding: 12px; border-radius: 4px;">
                   <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <span style="font-size: 12px; font-weight: 500; color: #d9d9d9;">
+                    <span style="font-size: 12px; font-weight: 500; color: var(--color-settings-input-text);">
                       {state.appSettings.colabCloud?.name || state.appSettings.colabCloud?.email}
                     </span>
-                    <span style="font-size: 10px; color: #999;">
+                    <span style="font-size: 10px; color: var(--color-text-tertiary);">
                       {state.appSettings.colabCloud?.email}
                     </span>
                     <Show when={!state.appSettings.colabCloud?.emailVerified}>
-                      <span style="font-size: 10px; color: #ffa500; margin-top: 4px;">
+                      <span style="font-size: 10px; color: var(--color-status-bar-warning, #ffa500); margin-top: 4px;">
                         Email not verified
                       </span>
                     </Show>
@@ -371,7 +371,7 @@ export const ColabCloudSettings = (): JSXElement => {
               </SettingsPaneField>
 
               <SettingsPaneField label="Connected">
-                <div style="font-size: 11px; color: #999;">
+                <div style="font-size: 11px; color: var(--color-info-box-text);">
                   Connected on {formatDateShort(state.appSettings.colabCloud?.connectedAt)}
                 </div>
               </SettingsPaneField>
@@ -386,11 +386,11 @@ export const ColabCloudSettings = (): JSXElement => {
                   <button
                     type="button"
                     onClick={disconnect}
-                    style="background: #ff6b6b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%;"
+                    style="background: var(--color-settings-button-error-bg, #ff6b6b); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%;"
                   >
                     Logout
                   </button>
-                  <div style="font-size: 11px; color: #999; margin-top: 8px; text-align: center;">
+                  <div style="font-size: 11px; color: var(--color-info-box-text); margin-top: 8px; text-align: center;">
                     You will need to login again to sync settings.
                   </div>
                 </SettingsPaneField>
@@ -398,13 +398,13 @@ export const ColabCloudSettings = (): JSXElement => {
             >
               <SettingsPaneField label="">
                 <Show when={loginError()}>
-                  <div style="background: rgba(255, 107, 107, 0.1); border: 1px solid rgba(255, 107, 107, 0.3); color: #ff6b6b; padding: 8px 12px; border-radius: 4px; font-size: 11px; margin-bottom: 12px;">
+                  <div style="background: rgba(255, 107, 107, 0.1); border: 1px solid rgba(255, 107, 107, 0.3); color: var(--color-settings-button-error-bg, #ff6b6b); padding: 8px 12px; border-radius: 4px; font-size: 11px; margin-bottom: 12px;">
                     {loginError()}
                   </div>
                 </Show>
 
                 <div style="margin-bottom: 12px;">
-                  <label style="display: block; font-size: 11px; color: #999; margin-bottom: 4px;">
+                  <label style="display: block; font-size: 11px; color: var(--color-info-box-text); margin-bottom: 4px;">
                     Email
                   </label>
                   <input
@@ -412,12 +412,12 @@ export const ColabCloudSettings = (): JSXElement => {
                     placeholder="you@example.com"
                     value={email()}
                     onInput={(e) => setEmail(e.currentTarget.value)}
-                    style="background: #2b2b2b; border: 1px solid #555; color: #d9d9d9; padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box;"
+                    style="background: var(--color-settings-input-bg); border: 1px solid var(--color-settings-input-border); color: var(--color-settings-input-text); padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box;"
                   />
                 </div>
 
                 <div style="margin-bottom: 12px;">
-                  <label style="display: block; font-size: 11px; color: #999; margin-bottom: 4px;">
+                  <label style="display: block; font-size: 11px; color: var(--color-info-box-text); margin-bottom: 4px;">
                     Password
                   </label>
                   <input
@@ -431,7 +431,7 @@ export const ColabCloudSettings = (): JSXElement => {
                         login();
                       }
                     }}
-                    style="background: #2b2b2b; border: 1px solid #555; color: #d9d9d9; padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box;"
+                    style="background: var(--color-settings-input-bg); border: 1px solid var(--color-settings-input-border); color: var(--color-settings-input-text); padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box;"
                   />
                 </div>
 
@@ -439,16 +439,16 @@ export const ColabCloudSettings = (): JSXElement => {
                   type="button"
                   onClick={login}
                   disabled={isLoggingIn()}
-                  style={`background: #4ade80; color: #1a1a1a; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%; font-weight: 500; opacity: ${isLoggingIn() ? 0.7 : 1};`}
+                  style={`background: var(--color-settings-button-success-bg, #4ade80); color: var(--color-settings-button-success-text, #1a1a1a); border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%; font-weight: 500; opacity: ${isLoggingIn() ? 0.7 : 1};`}
                 >
                   {isLoggingIn() ? "Logging in..." : "Login"}
                 </button>
 
-                <div style="font-size: 11px; color: #999; margin-top: 12px; text-align: center;">
+                <div style="font-size: 11px; color: var(--color-info-box-text); margin-top: 12px; text-align: center;">
                   Don't have an account?{" "}
                   <a
                     href="#"
-                    style="color: #4ade80; text-decoration: none;"
+                    style="color: var(--color-settings-button-success-bg, #4ade80); text-decoration: none;"
                     onClick={(e) => {
                       e.preventDefault();
                       // Open registration page in a web tab
@@ -472,16 +472,16 @@ export const ColabCloudSettings = (): JSXElement => {
               <Show when={!hasPassphrase() && !isSettingPassphrase()}>
                 <SettingsPaneField label="">
                   <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); padding: 16px; border-radius: 4px; text-align: center;">
-                    <div style="font-size: 13px; color: #ffc107; font-weight: 500; margin-bottom: 8px;">
+                    <div style="font-size: 13px; color: var(--color-status-bar-warning, #ffc107); font-weight: 500; margin-bottom: 8px;">
                       Set up encryption to enable sync
                     </div>
-                    <div style="font-size: 11px; color: #999; margin-bottom: 12px;">
+                    <div style="font-size: 11px; color: var(--color-info-box-text); margin-bottom: 12px;">
                       Your settings are encrypted locally before upload. We never see your data.
                     </div>
                     <button
                       type="button"
                       onClick={() => setIsSettingPassphrase(true)}
-                      style="background: #4ade80; color: #1a1a1a; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
+                      style="background: var(--color-settings-button-success-bg, #4ade80); color: var(--color-settings-button-success-text, #1a1a1a); border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
                     >
                       Set Encryption Passphrase
                     </button>
@@ -492,7 +492,7 @@ export const ColabCloudSettings = (): JSXElement => {
               {/* Setting passphrase form */}
               <Show when={isSettingPassphrase()}>
                 <SettingsPaneField label="Create Encryption Passphrase">
-                  <div style="font-size: 11px; color: #999; margin-bottom: 12px;">
+                  <div style="font-size: 11px; color: var(--color-info-box-text); margin-bottom: 12px;">
                     This passphrase encrypts your settings. You'll need it to restore on other devices.
                   </div>
                   <input
@@ -500,20 +500,20 @@ export const ColabCloudSettings = (): JSXElement => {
                     placeholder="Enter passphrase (min 8 characters)"
                     value={newPassphrase()}
                     onInput={(e) => setNewPassphrase(e.currentTarget.value)}
-                    style="background: #2b2b2b; border: 1px solid #555; color: #d9d9d9; padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box; margin-bottom: 8px;"
+                    style="background: var(--color-settings-input-bg); border: 1px solid var(--color-settings-input-border); color: var(--color-settings-input-text); padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box; margin-bottom: 8px;"
                   />
                   <input
                     type="password"
                     placeholder="Confirm passphrase"
                     value={confirmPassphrase()}
                     onInput={(e) => setConfirmPassphrase(e.currentTarget.value)}
-                    style="background: #2b2b2b; border: 1px solid #555; color: #d9d9d9; padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box; margin-bottom: 12px;"
+                    style="background: var(--color-settings-input-bg); border: 1px solid var(--color-settings-input-border); color: var(--color-settings-input-text); padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box; margin-bottom: 12px;"
                   />
                   <div style="display: flex; gap: 8px;">
                     <button
                       type="button"
                       onClick={handleSavePassphrase}
-                      style="flex: 1; background: #4ade80; color: #1a1a1a; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
+                      style="flex: 1; background: var(--color-settings-button-success-bg, #4ade80); color: var(--color-settings-button-success-text, #1a1a1a); border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
                     >
                       Save Passphrase
                     </button>
@@ -525,7 +525,7 @@ export const ColabCloudSettings = (): JSXElement => {
                         setConfirmPassphrase("");
                         setSyncMessage(null);
                       }}
-                      style="background: #333; color: #d9d9d9; border: 1px solid #555; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 12px;"
+                      style="background: var(--color-settings-button-secondary-bg, #333); color: var(--color-settings-input-text); border: 1px solid var(--color-settings-input-border); padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 12px;"
                     >
                       Cancel
                     </button>
@@ -537,19 +537,19 @@ export const ColabCloudSettings = (): JSXElement => {
               <Show when={hasPassphrase() && !isSettingPassphrase()}>
                 {/* What gets synced */}
                 <SettingsPaneField label="What gets backed up">
-                  <div style="background: #2b2b2b; padding: 12px; border-radius: 4px; font-size: 11px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; color: #999;">
+                  <div style="background: var(--color-settings-input-bg); padding: 12px; border-radius: 4px; font-size: 11px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; color: var(--color-info-box-text);">
                       <div style="display: flex; align-items: center; gap: 6px;">
-                        <span style="color: #4ade80;">✓</span> AI / Llama settings
+                        <span style="color: var(--color-settings-button-success-bg, #4ade80);">✓</span> AI / Llama settings
                       </div>
                       <div style="display: flex; align-items: center; gap: 6px;">
-                        <span style="color: #4ade80;">✓</span> GitHub connection
+                        <span style="color: var(--color-settings-button-success-bg, #4ade80);">✓</span> GitHub connection
                       </div>
                       <div style="display: flex; align-items: center; gap: 6px;">
-                        <span style="color: #4ade80;">✓</span> API tokens
+                        <span style="color: var(--color-settings-button-success-bg, #4ade80);">✓</span> API tokens
                       </div>
                       <div style="display: flex; align-items: center; gap: 6px;">
-                        <span style="color: #4ade80;">✓</span> Installed plugins
+                        <span style="color: var(--color-settings-button-success-bg, #4ade80);">✓</span> Installed plugins
                       </div>
                     </div>
                   </div>
@@ -558,18 +558,18 @@ export const ColabCloudSettings = (): JSXElement => {
                 {/* Sync status */}
                 <Show when={syncStatus()}>
                   <SettingsPaneField label="Backup Status">
-                    <div style="background: #2b2b2b; padding: 12px; border-radius: 4px;">
-                      <div style="font-size: 11px; color: #999;">
+                    <div style="background: var(--color-settings-input-bg); padding: 12px; border-radius: 4px;">
+                      <div style="font-size: 11px; color: var(--color-info-box-text);">
                         <Show when={syncStatus()?.hasSyncedSettings} fallback={
                           <span>No backup yet</span>
                         }>
                           <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                             <span>Last backup:</span>
-                            <span style="color: #d9d9d9;">{formatDate(syncStatus()?.lastSync?.at)}</span>
+                            <span style="color: var(--color-settings-input-text);">{formatDate(syncStatus()?.lastSync?.at)}</span>
                           </div>
                           <div style="display: flex; justify-content: space-between;">
                             <span>Size:</span>
-                            <span style="color: #d9d9d9;">
+                            <span style="color: var(--color-settings-input-text);">
                               {syncStatus()?.storage?.usedFormatted} / {syncStatus()?.storage?.limitFormatted}
                             </span>
                           </div>
@@ -612,7 +612,7 @@ export const ColabCloudSettings = (): JSXElement => {
                       type="button"
                       onClick={handleBackup}
                       disabled={isSyncing()}
-                      style={`flex: 1; background: #4ade80; color: #1a1a1a; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500; opacity: ${isSyncing() ? 0.7 : 1};`}
+                      style={`flex: 1; background: var(--color-settings-button-success-bg, #4ade80); color: var(--color-settings-button-success-text, #1a1a1a); border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500; opacity: ${isSyncing() ? 0.7 : 1};`}
                     >
                       {isSyncing() ? "Working..." : "Backup"}
                     </button>
@@ -620,7 +620,7 @@ export const ColabCloudSettings = (): JSXElement => {
                       type="button"
                       onClick={handleRestore}
                       disabled={isSyncing() || !syncStatus()?.hasSyncedSettings}
-                      style={`flex: 1; background: #333; color: #d9d9d9; border: 1px solid #555; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; opacity: ${(isSyncing() || !syncStatus()?.hasSyncedSettings) ? 0.5 : 1};`}
+                      style={`flex: 1; background: var(--color-settings-button-secondary-bg, #333); color: var(--color-settings-input-text); border: 1px solid var(--color-settings-input-border); padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; opacity: ${(isSyncing() || !syncStatus()?.hasSyncedSettings) ? 0.5 : 1};`}
                     >
                       Restore
                     </button>
@@ -632,7 +632,7 @@ export const ColabCloudSettings = (): JSXElement => {
                   <button
                     type="button"
                     onClick={() => setIsSettingPassphrase(true)}
-                    style="background: transparent; color: #999; border: none; padding: 4px 0; cursor: pointer; font-size: 11px; text-decoration: underline;"
+                    style="background: transparent; color: var(--color-info-box-text); border: none; padding: 4px 0; cursor: pointer; font-size: 11px; text-decoration: underline;"
                   >
                     Change passphrase
                   </button>
@@ -650,11 +650,11 @@ export const ColabCloudSettings = (): JSXElement => {
                     openNewTabForNode("__COLAB_INTERNAL__/web", false, { url: getDashboardUrl() });
                   });
                 }}
-                style="background: #333; color: #d9d9d9; border: 1px solid #555; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%;"
+                style="background: var(--color-settings-button-secondary-bg, #333); color: var(--color-settings-input-text); border: 1px solid var(--color-settings-input-border); padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%;"
               >
                 Open Colab Cloud Dashboard
               </button>
-              <div style="font-size: 11px; color: #999; margin-top: 8px; text-align: center;">
+              <div style="font-size: 11px; color: var(--color-info-box-text); margin-top: 8px; text-align: center;">
                 Manage your account, devices, and subscription.
               </div>
             </SettingsPaneField>

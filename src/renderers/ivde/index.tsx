@@ -33,6 +33,7 @@ import {
 
 import { makeFileNameSafe } from "../../shared/utils/files";
 import "./index.css";
+import { applyTheme } from "./utils/themes/theme";
 import {
 	type AppState,
 	type FileTabType,
@@ -785,7 +786,7 @@ const App = () => {
 					<div
 						class="settings-pane webview-overlay"
 						style={{
-							background: "#404040",
+							background: "var(--color-settings, #404040)",
 							width: "500px",
 							position: "absolute",
 							top: "0px",
@@ -795,7 +796,7 @@ const App = () => {
 							"z-index": 1001,
 						}}
 					>
-						<div style="position:absolute; right: -14px;border-left: 2px solid #212121; border-right: 2px solid #212121; background: #2b2b2b; width: 10px; height: 100%;" />
+						<div style="position:absolute; right: -14px;border-left: 2px solid var(--color-settings-pane-border, #212121); border-right: 2px solid var(--color-settings-pane-border, #212121); background: var(--color-settings-section, #2b2b2b); width: 10px; height: 100%;" />
 						<Show when={state.settingsPane.type}>
 							<div style={{}}>
 								<Switch>
@@ -955,7 +956,7 @@ const WorkspaceSettings = () => {
 											>
 												Remove from co(lab) and Remove local files and folders
 											</button>
-											<span style="font-size: 11px;color: #999;background: #333;padding: 10px;">
+											<span style="font-size: 11px;color: var(--color-info-box-text, #999);background: var(--color-info-box-bg, #333);padding: 10px;">
 												Will instantly delete all files and folders in all the
 												projects in this workspace. They will go to the recycle
 												bin.
@@ -1002,6 +1003,9 @@ const GlobalSettings = () => {
 		state.appSettings.analyticsEnabled || false,
 	);
 	const [analyticsStatus, setAnalyticsStatus] = createSignal<any>({});
+	const [theme, setTheme] = createSignal<'default' | 'dark' | 'light'>(
+		state.appSettings.theme || 'default',
+	);
 
 	// Load current analytics status
 	onMount(() => {
@@ -1015,7 +1019,33 @@ const GlobalSettings = () => {
 			userHasBeenPrompted: state.appSettings.analyticsConsentPrompted || false,
 		});
 		setAnalyticsEnabled(state.appSettings.analyticsEnabled || false);
+		setTheme(state.appSettings.theme || 'default');
 	});
+
+const onThemeChange = (e: Event) => {
+	const target = e.target as HTMLSelectElement;
+	const newTheme = target.value as 'default' | 'dark' | 'light';
+	setTheme(newTheme);
+	setState("appSettings", "theme", newTheme);
+	updateSyncedAppSettings();
+	
+	// Directly set editor theme when theme changes
+	const editorTheme = newTheme === 'light' ? 'lightPlus' : 'darkPlus';
+	console.log('Theme changed to:', newTheme, 'Setting editor theme to:', editorTheme);
+	
+	// Use the global monaco object that's already available
+	if (window.monaco && window.monaco.editor) {
+		console.log('Monaco editor available, setting theme...');
+		window.monaco.editor.setTheme(editorTheme);
+		
+		// Also update all existing editors if the setEditorTheme function is available
+		if ((window as any).setEditorTheme) {
+			(window as any).setEditorTheme(newTheme);
+		}
+	} else {
+		console.log('Monaco editor not available in window object');
+	}
+};
 
 	const onDeleteClick = (tokenId: string) => {
 		electrobun.rpc?.send.deleteToken({ tokenId });
@@ -1042,12 +1072,12 @@ const GlobalSettings = () => {
 	return (
 		<div
 			style={{
-				background: "#404040",
+				background: "var(--color-settings)",
 				width: "100%",
 				height: "100%",
 				display: "flex",
 				"flex-direction": "column",
-				color: "#d9d9d9",
+				color: "var(--color-text)",
 			}}
 		>
 			<form style="" onSubmit={onSubmit}>
@@ -1104,7 +1134,7 @@ const GlobalSettings = () => {
 														>
 															delete
 														</button>
-														<span style="font-size: 11px;color: #999;background: #333;padding: 10px;">
+														<span style="font-size: 11px;color: var(--color-info-box-text);background: var(--color-info-box-bg);padding: 10px;">
 															This will delete the token from co(lab), but you
 															may still need to revoke it in Webflow's settings
 														</span>
@@ -1120,6 +1150,26 @@ const GlobalSettings = () => {
 										setAnalyticsEnabled={setAnalyticsEnabled}
 										analyticsStatus={analyticsStatus}
 									/>
+								</div>
+								<div style="margin-top: 0px;background-color: transparent;border-left: 0px solid rgb(33, 33, 33);border-right: 0px solid rgb(33, 33, 33);border-radius: 0px;border-bottom: 1px solid rgb(33, 33, 33);">
+									<SettingsPaneFormSection label="Theme">
+										<SettingsPaneField label="Theme Mode">
+											<select
+												value={theme()}
+												onChange={onThemeChange}
+												style="background: #2b2b2b; border: 1px solid #212121; color: #d9d9d9; padding: 8px; min-width: 200px;"
+											>
+												<option value="default">Default</option>
+												<option value="dark">Dark</option>
+												<option value="light">Light</option>
+											</select>
+										</SettingsPaneField>
+										<p style="color: #ccc; font-size: 12px; margin-top: 8px; margin-bottom: 0;">
+											{theme() === 'default' && 'Default theme with light sidebar'}
+											{theme() === 'dark' && 'All elements in dark mode'}
+											{theme() === 'light' && 'All elements in light mode'}
+										</p>
+									</SettingsPaneFormSection>
 								</div>
 							</div>
 						</div>
@@ -1460,9 +1510,9 @@ const PaneDivider = ({
 		left: 0,
 		top: 0,
 		"z-index": 20,
-		background: isHovered() ? "#105460" : "#181818",
+		background: isHovered() ? "var(--color-pane-splitter-hover-bg)" : "var(--color-pane-splitter-bg)",
 		"box-shadow":
-			"inset 0 2px 4px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.4)",
+			`inset 0 2px 4px var(--color-pane-splitter-shadow), inset 0 -2px 4px var(--color-pane-splitter-shadow)`,
 	});
 
 	return (
@@ -1712,7 +1762,7 @@ const Pane = ({
 						display: "flex",
 						transition: "height 0.4s",
 						"overflow-y": "hidden",
-						background: isSelected() ? "#272729" : "#252526",
+						background: isSelected() ? "var(--color-pane-top-bar-selected, #272729)" : "var(--color-pane-top-bar-unselected, #252526)",
 						opacity: isSelected() ? 1 : 0.75,
 					}}
 					onMouseEnter={() => setIsTabsExpanded(true)}
@@ -1736,12 +1786,12 @@ const Pane = ({
 					</div>
 					<div
 						class="pane-split-controls"
-						style="display:flex; align-items:center; box-shadow: -2px 0px 4px 2px #222; z-index: 1;"
+						style="display:flex; align-items:center; box-shadow: -2px 0px 4px 2px var(--color-pane-split-controls-shadow, #222); z-index: 1;"
 					>
 						<Show when={getRootPane()?.type === "container"}>
 							<button
 								onClick={onCloseSplitClick}
-								style="background: #333;border: 1px solid #111;margin: 2px;color: #fff;display:flex; align-items:center; justify-content: center;"
+								style="background: var(--color-button-dark-bg, #333);border: 1px solid var(--color-button-dark-border, #111);margin: 2px;color: var(--color-button-dark-text, #fff);display:flex; align-items:center; justify-content: center;"
 							>
 								<img
 									width="18px"
@@ -1752,7 +1802,7 @@ const Pane = ({
 						</Show>
 						<button
 							onClick={onHorizontalSplitClick}
-							style="background: #333;border: 1px solid #111;margin: 2px;color: #fff;display:flex; align-items:center; justify-content:center;"
+							style="background: var(--color-button-dark-bg, #333);border: 1px solid var(--color-button-dark-border, #111);margin: 2px;color: var(--color-button-dark-text, #fff);display:flex; align-items:center; justify-content:center;"
 						>
 							<img
 								width="18px"
@@ -1762,7 +1812,7 @@ const Pane = ({
 						</button>
 						<button
 							onClick={onVerticalSplitClick}
-							style="background: #333;border: 1px solid #111;margin: 2px;color: #fff;display:flex; align-items:center; justify-content: center;"
+							style="background: var(--color-button-dark-bg, #333);border: 1px solid var(--color-button-dark-border, #111);margin: 2px;color: var(--color-button-dark-text, #fff);display:flex; align-items:center; justify-content: center;"
 						>
 							<img
 								width="18px"
@@ -1777,7 +1827,7 @@ const Pane = ({
 					style={{
 						position: "relative",
 						width: "100%",
-						background: isEmptyPane() ? "#000005" : "",
+						background: isEmptyPane() ? "var(--color-empty-pane-bg, #000005)" : "",
 
 						// height: "calc(100% - 25px)",
 						"flex-grow": 1,
@@ -1800,7 +1850,7 @@ const Pane = ({
 								"font-weight": "600",
 								"font-family":
 									"Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-								color: "#131212ff",
+								color: "var(--color-empty-pane-text, #131212ff)",
 								"user-select": "none",
 								"pointer-events": "none",
 								"z-index": 1,
@@ -1815,7 +1865,7 @@ const Pane = ({
 						style={{
 							display: isDropTarget() ? "flex" : "none",
 							"z-index": "100",
-							background: "rgba(0, 0, 0, 0.95)",
+							background: "var(--color-drop-target-bg, rgba(0, 0, 0, 0.95))",
 							// opacity: state.isResizingPane ? 0.95 : 1,
 							position: "absolute",
 							inset: "0px",
@@ -1823,7 +1873,7 @@ const Pane = ({
 							"align-items": "center",
 						}}
 					>
-						<span style="color: #bbb">{"Drop Here"}</span>
+						<span style="color: var(--color-drop-target-text, #bbb)">{"Drop Here"}</span>
 					</div>
 				</div>
 			</div>
@@ -1871,8 +1921,8 @@ const TabContent = ({ tabId }: { tabId: string }) => {
 			style={{
 				height: "100%",
 				width: "100%",
-				background: "#1f1f1f",
-				color: "#fff",
+				background: "var(--color-tab-content-bg, #1f1f1f)",
+				color: "var(--color-tab-content-text, #fff)",
 				position: "absolute",
 			}}
 			onMouseDown={setActivePane}
@@ -2302,24 +2352,24 @@ const PaneTab = ({
 					}
 				}}
 				style={{
-					background: isDroppingTabLeftOfThisTab()
-						? "#105460"
-						: isCurrentTab()
-						  ? "#1e1e1e"
-						  : isHovered()
-							  ? "#303030"
-							  : "#292929",
-					color: isCurrentTab() ? "#e2e2e2" : "#bbb",
+				background: isDroppingTabLeftOfThisTab()
+					? "var(--color-tab-drop-target-bg, #105460)"
+					: isCurrentTab()
+					  ? "var(--color-tab-active-bg, #1e1e1e)"
+					  : isHovered()
+						  ? "var(--color-tab-hover-bg, #303030)"
+						  : "var(--color-tab-inactive-bg, #292929)",
+				color: isCurrentTab() ? "var(--color-tab-active-text, #e2e2e2)" : "var(--color-tab-inactive-text, #bbb)",
 					opacity: isCurrentTab() ? 1 : 0.75,
 					padding: "6px 20px 6px 14px",
 					// "margin-left": isDroppingTabLeftOfThisTab() ? "150px" : "",
 					"line-height": "16px",
 					"font-size": "15px",
 					cursor: "pointer",
-					"border-top": isCurrentTab() ? "2px solid blue" : "2px solid grey",
-					"box-shadow": isCurrentTab()
-						? "0px 0px 5px 0px #000"
-						: "inset 0px 3px 6px -3px rgba(0, 0, 0, 0.4)",
+				"border-top": isCurrentTab() ? "2px solid var(--color-tab-active-border, blue)" : "2px solid var(--color-tab-inactive-border, grey)",
+				"box-shadow": isCurrentTab()
+					? "0px 0px 5px 0px var(--color-tab-shadow, #000)"
+					: "inset 0px 3px 6px -3px rgba(0, 0, 0, 0.4)",
 					"z-index": isCurrentTab() ? 1 : "",
 					position: "relative",
 					"user-select": "none",
@@ -2330,8 +2380,8 @@ const PaneTab = ({
 					transition: "opacity 100ms, margin 100ms",
 					"white-space": "nowrap",
 					"border-radius": "2px",
-					"border-left": "1px solid #000",
-					"border-right": "1px solid #000",
+				"border-left": "1px solid var(--color-tab-border, #000)",
+				"border-right": "1px solid var(--color-tab-border, #000)",
 					display: "flex",
 					"align-items": "center",
 				}}
@@ -2369,9 +2419,9 @@ const PaneTab = ({
 					<div
 						onMouseEnter={() => setIsHoveredOnX(true)}
 						onMouseLeave={() => setIsHoveredOnX(false)}
-						style={`position: absolute; top: 7px; right: 3px; background: ${
-							isHoveredOnX() ? "#555" : "transparent"
-						};
+					style={`position: absolute; top: 7px; right: 3px; background: ${
+						isHoveredOnX() ? "var(--color-tab-close-hover-bg, #555)" : "transparent"
+					};
           font-size: 11px;
           width: 14px;
           height: 14px;
@@ -3653,7 +3703,7 @@ const NodeSettings = () => {
 												>
 													Delete from disk
 												</button>
-												<span style="font-size: 11px;color: #999;background: #333;padding: 10px;">
+												<span style="font-size: 11px;color: var(--color-info-box-text);background: var(--color-info-box-bg);padding: 10px;">
 													Will instantly delete all files and folders in{" "}
 													{node()?.path}. They will go to the recycle bin.
 												</span>
@@ -3684,7 +3734,7 @@ const NodeSettings = () => {
 													>
 														Remove Project
 													</button>
-													<span style="font-size: 11px;color: #999;background: #333;padding: 10px;">
+													<span style="font-size: 11px;color: var(--color-info-box-text);background: var(--color-info-box-bg);padding: 10px;">
 														Will remove the project from co(lab), but files at{" "}
 														{node()?.path} will remain. You can re-add the
 														project later if you'd like.
@@ -3781,7 +3831,7 @@ const NodeSettings = () => {
 													>
 														Edit
 													</button>
-													<span style="font-size: 11px;color: #999;background: #333;padding: 10px;">
+													<span style="font-size: 11px;color: var(--color-info-box-text);background: var(--color-info-box-bg);padding: 10px;">
 														Insert javascript and css into the page when loading
 														this profile
 													</span>
@@ -3798,7 +3848,7 @@ const NodeSettings = () => {
 													>
 														Remove Profile
 													</button>
-													<span style="font-size: 11px;color: #999;background: #333;padding: 10px;">
+													<span style="font-size: 11px;color: var(--color-info-box-text);background: var(--color-info-box-bg);padding: 10px;">
 														Will remove the profile from co(lab), converting
 														this to a regular folder.
 													</span>
@@ -4100,7 +4150,7 @@ const Sidebar = () => {
 				style={{
 					flex: "1",
 					height: "100%",
-					"background-color": "#e7e2df",
+					"background-color": "var(--color-sidebar)",
 					overflow: "scroll",
 					"box-sizing": "border-box",
 					"white-space": "nowrap",
@@ -4120,14 +4170,14 @@ const Sidebar = () => {
 						padding: "6px 6px 0px",
 					}}
 				>
-					<input
-						ref={(r) => (globalFindAllInput = r)}
-						style={`
-            background: #3c3c3c;
-            border: 1px solid #464647;
+						<input
+							ref={(r) => (globalFindAllInput = r)}
+							style={`
+            background: var(--color-find-input-bg);
+            border: 1px solid var(--color-find-input-border);
             border-radius: 3px;
             padding: 6px 30px 6px 8px;
-            color: #cccccc;
+            color: var(--color-find-input-text);
             flex-grow: 1;
             margin-right: -26px;
             font-size: 13px;
@@ -4139,33 +4189,32 @@ const Sidebar = () => {
 						onInput={onFindAllChange}
 					/>
 					<div
-						style={{
-							width: "15px",
-							background: state.ui.filterFileTreeByFindAll
-								? "rgba(0, 0, 0, .4)"
-								: "transparent",
-							"border-radius": "8px",
-							padding: "2px 6px",
-							color: "#999",
-							cursor: "pointer",
-							"user-select": "none",
-						}}
-						onClick={toggleShowFilter}
-					>
-						<svg
 							style={{
-								// filter: state.ui.filterFileTreeByFindAll ? "invert()" : "",
-								filter: "invert()",
+								width: "15px",
+								background: state.ui.filterFileTreeByFindAll
+									? "var(--color-filter-toggle-bg)"
+									: "transparent",
+								"border-radius": "8px",
+								padding: "2px 6px",
+								color: "var(--color-filter-toggle-text)",
+								cursor: "pointer",
+								"user-select": "none",
 							}}
-							xmlns="http://www.w3.org/2000/svg"
-							x="0px"
-							y="0px"
-							width="100%"
-							height="100%"
-							viewBox="0 0 50 50"
+							onClick={toggleShowFilter}
 						>
-							<path d="M 21 3 C 11.601563 3 4 10.601563 4 20 C 4 29.398438 11.601563 37 21 37 C 24.355469 37 27.460938 36.015625 30.09375 34.34375 L 42.375 46.625 L 46.625 42.375 L 34.5 30.28125 C 36.679688 27.421875 38 23.878906 38 20 C 38 10.601563 30.398438 3 21 3 Z M 21 7 C 28.199219 7 34 12.800781 34 20 C 34 27.199219 28.199219 33 21 33 C 13.800781 33 8 27.199219 8 20 C 8 12.800781 13.800781 7 21 7 Z" />
-						</svg>
+							<svg
+								style={{
+									filter: "var(--color-filter-icon-filter)",
+								}}
+								xmlns="http://www.w3.org/2000/svg"
+								x="0px"
+								y="0px"
+								width="100%"
+								height="100%"
+								viewBox="0 0 50 50"
+							>
+								<path d="M 21 3 C 11.601563 3 4 10.601563 4 20 C 4 29.398438 11.601563 37 21 37 C 24.355469 37 27.460938 36.015625 30.09375 34.34375 L 42.375 46.625 L 46.625 42.375 L 34.5 30.28125 C 36.679688 27.421875 38 23.878906 38 20 C 38 10.601563 30.398438 3 21 3 Z M 21 7 C 28.199219 7 34 12.800781 34 20 C 34 27.199219 28.199219 33 21 33 C 13.800781 33 8 27.199219 8 20 C 8 12.800781 13.800781 7 21 7 Z" />
+							</svg>
 					</div>
 				</div>
 				<div style={{}}>
@@ -4190,7 +4239,7 @@ const Sidebar = () => {
 						width: "4px",
 						height: "100%",
 						transition: "background 150ms",
-						background: isHoveredResize() ? "#105460" : "#333",
+						background: isHoveredResize() ? "var(--color-sidebar-resize-handle-hover-bg)" : "var(--color-sidebar-resize-handle-bg)",
 						position: "absolute",
 						right: "0",
 						top: "0",
@@ -4209,6 +4258,12 @@ const Sidebar = () => {
 // let debounceLiClick: null | NodeJS.Timeout = null;
 
 // todo (yoav): simplify this component
+
+// Apply theme when theme state changes
+createEffect(() => {
+  const theme = state.appSettings.theme || 'default';
+  applyTheme(theme);
+});
 
 const appElement = document.querySelector("#app");
 

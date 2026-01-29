@@ -281,7 +281,7 @@ export const LlamaSettings = (): JSXElement => {
 
   return (
     <div
-      style="background: #404040; color: #d9d9d9; height: 100vh; overflow: hidden; display: flex; flex-direction: column;"
+      style="background: var(--color-settings-body-bg, #404040); color: var(--color-settings-input-text); height: 100vh; overflow: hidden; display: flex; flex-direction: column;"
     >
       <form onSubmit={onSubmit} style="height: 100%; display: flex; flex-direction: column;">
         <SettingsPaneSaveClose label="AI Model Settings" />
@@ -289,10 +289,10 @@ export const LlamaSettings = (): JSXElement => {
         <div style="flex: 1; overflow-y: auto; padding: 0; margin-bottom: 60px;">
           <SettingsPaneFormSection label="Status">
             <SettingsPaneField label="Models">
-              <div style="background: #202020; padding: 8px; color: #d9d9d9; font-size: 12px; border-radius: 4px;">
-                Status: <span style="background: #2b2b2b; padding: 4px 8px; margin-left: 8px; border-radius: 2px;">{statusMessage()}</span>
+              <div style="background: var(--color-settings-input-border);; padding: 8px; color: var(--color-settings-input-text); font-size: 12px; border-radius: 4px;">
+                Status: <span style="background: var(--color-settings-input-bg); padding: 4px 8px; margin-left: 8px; border-radius: 2px;">{statusMessage()}</span>
               </div>
-              <div style="margin-top: 8px; font-size: 11px; color: #999;">
+              <div style="margin-top: 8px; font-size: 11px; color: var(--color-info-box-text);">
                 Models are managed locally using llama.cpp. No external service required.
               </div>
             </SettingsPaneField>
@@ -304,7 +304,7 @@ export const LlamaSettings = (): JSXElement => {
                 ref={modelRef}
                 name="model"
                 value={state.appSettings.llama.model}
-                style="background: #2b2b2b; border-radius: 4px; border: 1px solid #212121; color: #d9d9d9; outline: none; cursor: pointer; display: block; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif; font-size: 12px; padding: 8px 9px; line-height: 14px; width: 100%;"
+                style="background: var(--color-settings-input-bg); border-radius: 4px; border: 1px solid #212121; color: var(--color-settings-input-text); outline: none; cursor: pointer; display: block; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif; font-size: 12px; padding: 8px 9px; line-height: 14px; width: 100%;"
               >
                 {availableModels().length > 0 ? (
                   availableModels().map(model => (
@@ -318,7 +318,7 @@ export const LlamaSettings = (): JSXElement => {
                   </option>
                 )}
               </select>
-              <div style="font-size: 11px; color: #999; margin-top: 4px;">
+              <div style="font-size: 11px; color: var(--color-info-box-text); margin-top: 4px;">
                 The model to use for code completion. {availableModels().length === 0 ? "No models detected - install models below." : `${availableModels().length} model${availableModels().length === 1 ? '' : 's'} available.`}
               </div>
             </SettingsPaneField>
@@ -337,11 +337,11 @@ export const LlamaSettings = (): JSXElement => {
                     onInput={(e) => setCurrentTemperature(parseFloat(e.currentTarget.value))}
                     style="flex: 1; accent-color: #0073e6;"
                   />
-                  <span style="font-size: 12px; color: #d9d9d9; min-width: 32px; text-align: right;">
+                  <span style="font-size: 12px; color: var(--color-settings-input-text); min-width: 32px; text-align: right;">
                     {currentTemperature().toFixed(1)}
                   </span>
                 </div>
-                <div style="font-size: 11px; color: #999; margin-top: 4px;">
+                <div style="font-size: 11px; color: var(--color-info-box-text); margin-top: 4px;">
                   0.0-0.3: Focused (good for code) • 0.4-0.7: Balanced • 0.8-1.0: Creative • 1.0+: Very random
                 </div>
               </div>
@@ -382,8 +382,8 @@ export const LlamaSettings = (): JSXElement => {
               when={availableModels().length > 0}
               fallback={
                 <SettingsPaneField label="">
-                  <div style="padding: 12px; background: #2b2b2b; border-radius: 4px; text-align: center;">
-                    <span style="font-size: 12px; color: #999;">
+                  <div style="padding: 12px; background: var(--color-settings-input-bg); border-radius: 4px; text-align: center;">
+                    <span style="font-size: 12px; color: var(--color-info-box-text);">
                       No models installed. Install models below to get started.
                     </span>
                   </div>
@@ -397,12 +397,12 @@ export const LlamaSettings = (): JSXElement => {
                       const isUninstalling = uninstallingModel() === model.name;
                       
                       return (
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #2b2b2b; border-radius: 4px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--color-settings-input-bg); border-radius: 4px;">
                           <div style="display: flex; flex-direction: column;">
-                            <span style="font-size: 12px; color: #d9d9d9; font-weight: 500;">
+                            <span style="font-size: 12px; color: var(--color-settings-input-text); font-weight: 500;">
                               {getModelDisplayName(model.name)}
                             </span>
-                            <span style="font-size: 10px; color: #999; margin-top: 2px;">
+                            <span style="font-size: 10px; color: var(--color-text-tertiary); margin-top: 2px;">
                               {formatFileSize(model.size)} • Source: {model.source}
                             </span>
                           </div>
@@ -416,13 +416,13 @@ export const LlamaSettings = (): JSXElement => {
                               <button
                                 type="button"
                                 onClick={() => uninstallModel(model.path, model.name)}
-                                style="background: #ff6b6b; color: white; border: none; padding: 4px 12px; border-radius: 3px; cursor: pointer; font-size: 11px;"
+                                style="background: var(--color-settings-button-error-bg, #ff6b6b); color: white; border: none; padding: 4px 12px; border-radius: 3px; cursor: pointer; font-size: 11px;"
                                 disabled={uninstallingModel() !== null}
                               >
                                 Remove
                               </button>
                             ) : (
-                              <span style="font-size: 10px; color: #666; padding: 4px 8px; background: #1a1a1a; border-radius: 3px;">
+                              <span style="font-size: 10px; color: var(--color-text-secondary, #666); padding: 4px 8px; background: #1a1a1a; border-radius: 3px;">
                                 Legacy managed
                               </span>
                             )}
@@ -439,9 +439,9 @@ export const LlamaSettings = (): JSXElement => {
           <SettingsPaneFormSection label="Available Models">
             <Show when={installingModel()}>
               <SettingsPaneField label="">
-                <div style="padding: 12px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; margin-bottom: 8px;">
-                  <div style="font-size: 12px; color: #ffa500; display: flex; align-items: center; gap: 8px;">
-                    <div style="width: 16px; height: 16px; border: 2px solid #333; border-top: 2px solid #ffa500; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                <div style="padding: 12px; background: #1a1a1a; border: 1px solid var(--color-settings-input-border, #333); border-radius: 4px; margin-bottom: 8px;">
+                  <div style="font-size: 12px; color: var(--color-status-bar-warning, #ffa500); display: flex; align-items: center; gap: 8px;">
+                    <div style="width: 16px; height: 16px; border: 2px solid var(--color-settings-input-border, #333); border-top: 2px solid var(--color-status-bar-warning, #ffa500); border-radius: 50%; animation: spin 1s linear infinite;"></div>
                     <span>{installProgress() || `Installing ${installingModel()}...`}</span>
                   </div>
                 </div>
@@ -460,30 +460,30 @@ export const LlamaSettings = (): JSXElement => {
                     const isInstalling = () => installingModel() === model.name;
                     
                     return (
-                      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #2b2b2b; border-radius: 4px;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--color-settings-input-bg); border-radius: 4px;">
                         <div style="display: flex; flex-direction: column;">
-                          <span style="font-size: 12px; color: #d9d9d9; font-weight: 500;">
+                          <span style="font-size: 12px; color: var(--color-settings-input-text); font-weight: 500;">
                             {model.name}
                           </span>
-                          <span style="font-size: 10px; color: #999; margin-top: 2px;">
+                          <span style="font-size: 10px; color: var(--color-text-tertiary); margin-top: 2px;">
                             {model.size} • Hugging Face model
                           </span>
                         </div>
                         <div>
                           {isInstalling() ? (
                             <div style="display: flex; align-items: center; gap: 6px;">
-                              <div style="width: 12px; height: 12px; border: 1px solid #666; border-top: 1px solid #fff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                              <span style="font-size: 10px; color: #ffa500;">Installing...</span>
+                              <div style="width: 12px; height: 12px; border: 1px solid var(--color-text-secondary, #666); border-top: 1px solid #fff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                              <span style="font-size: 10px; color: var(--color-status-bar-warning, #ffa500);">Installing...</span>
                             </div>
                           ) : isInstalled() ? (
-                            <span style="font-size: 10px; color: #51cf66; padding: 4px 12px; background: #1a4a1a; border-radius: 3px;">
+                            <span style="font-size: 10px; color: var(--color-status-bar-success, #51cf66); padding: 4px 12px; background: #1a4a1a; border-radius: 3px;">
                               ✓ Installed
                             </span>
                           ) : (
                             <button
                               type="button"
                               onClick={() => installModel(model.name, model.ref)}
-                              style="background: #0073e6; color: white; border: none; padding: 4px 12px; border-radius: 3px; cursor: pointer; font-size: 11px;"
+                              style="background: var(--color-button-hover, #0073e6); color: white; border: none; padding: 4px 12px; border-radius: 3px; cursor: pointer; font-size: 11px;"
                               disabled={installingModel() !== null}
                             >
                               Install

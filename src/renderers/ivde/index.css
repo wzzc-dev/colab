@@ -93,7 +93,7 @@
 }
 
  body {
-   background: #1e1e1e;   
+   background: var(--color-body, #1e1e1e);
  }
 
  /* NOTE: this hides tab content in the light dom
@@ -103,15 +103,15 @@
    display: none;
  }
 
- .workspace-menu-button {
-  background: #111;
+.workspace-menu-button {
+  background: var(--color-menu, #111);
   cursor: pointer;
- }
+}
 
- .workspace-menu-button:hover {
-  background: #efefef;
-  color: #111;
- }
+.workspace-menu-button:hover {
+  background: var(--color-menu-hover-bg, #efefef);
+  color: var(--color-menu-hover-text, #111);
+}
 
 
  .workspace-menu {
@@ -119,79 +119,79 @@
  }
 
 
- .workspace-menu li {
-  background: #111;
+.workspace-menu li {
+  background: var(--color-menu, #111);
   cursor: pointer;
   padding: 10px;
   margin: 2px;
- }
+}
 
- .workspace-menu li:hover {
-  background: #333;
- }
+.workspace-menu li:hover {
+  background: var(--color-menu-hover, #333);
+}
 
  .app-menu-button:hover {
   filter: invert();
  }
 
- .app-menu li {
-  background: #e3e3e3;
+.app-menu li {
+  background: var(--color-app-menu, #e3e3e3);
   cursor: pointer;
   padding: 10px;
   margin: 2px;
- }
+}
 
- .app-menu li:hover {
-  background: rgb(81, 145, 185);
- }
+.app-menu li:hover {
+  background: var(--color-app-menu-hover, rgb(81, 145, 185));
+}
 
- .update-button > span {
-  background: #db0;
- }
+.update-button > span {
+  background: var(--color-update-button-bg, #db0);
+}
 
- .update-button:hover > span {
-  background: #dd0;
- }
+.update-button:hover > span {
+  background: var(--color-update-button-hover-bg, #dd0);
+}
 
- .update-button:active > span {
-  background: #ca0
- }
+.update-button:active > span {
+  background: var(--color-update-button-active-bg, #ca0);
+}
 
 .update-button.error > span {
-  background: #b93131;
+  background: var(--color-update-button-error-bg, #b93131);
 }
 
 .update-button.error:hover > span {
-  background: #d84040;
+  background: var(--color-update-button-error-hover-bg, #d84040);
 }
 
 .update-button.error:active > span {
-  background: #9f2a2a;
+  background: var(--color-update-button-error-active-bg, #9f2a2a);
 }
 
- .browser-btn {
-  background: #333;  
+.browser-btn {
+  background: var(--color-browser-btn-bg, #333);
   border-radius: 8px;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
  }
 
- .browser-btn:hover {
-  background: #444;
-  box-shadow: 0px 0px 3px 0px #000;
- }
+.browser-btn:hover {
+  background: var(--color-browser-btn-hover-bg, #444);
+  box-shadow: 0px 0px 3px 0px var(--color-browser-btn-shadow, #000);
+}
 
- .browser-btn:disabled {  
+.browser-btn:disabled {
   cursor: default;
- }
+}
 
- .browser-btn:disabled:hover {
-  background: #333;
+.browser-btn:disabled:hover {
+  background: var(--color-browser-btn-bg, #333);
   box-shadow: none;
- }
+}
 
  .browser-btn:disabled img {
   opacity: 0.3;

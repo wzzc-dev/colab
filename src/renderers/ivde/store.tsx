@@ -309,6 +309,7 @@ export interface AppState {
     };
   };
   appSettings: {
+    theme?: 'default' | 'dark' | 'light';
     analyticsEnabled?: boolean;
     analyticsConsentPrompted?: boolean;
     llama: {
@@ -432,6 +433,7 @@ const initialState: AppState = {
   },
   openFiles: {},
   appSettings: {
+    theme: 'light',
     llama: {
       enabled: true,
       baseUrl: "llama.cpp",

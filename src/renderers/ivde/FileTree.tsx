@@ -151,7 +151,7 @@ const CategoryRow = ({ label, showAddButton = false }: { label: string; showAddB
     <div
       style={{
         "font-family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-        color: "#333",
+        color: "var(--color-sidebar-text, #333)",
         margin: "8px",
         "font-size": "13px",
         cursor: "default",
@@ -175,15 +175,15 @@ const CategoryRow = ({ label, showAddButton = false }: { label: string; showAddB
             top: "6px",
             width: "18px",
             height: "18px",
-            background: isAddButtonHovered() ? "rgba(59, 130, 246, 0.15)" : "rgba(0, 0, 0, 0.08)",
-            border: isAddButtonHovered() ? "1px solid rgba(59, 130, 246, 0.4)" : "1px solid rgba(0, 0, 0, 0.15)",
+            background: isAddButtonHovered() ? "var(--color-file-tree-button-hover-bg, rgba(59, 130, 246, 0.15))" : "var(--color-file-tree-button-bg, rgba(0, 0, 0, 0.08))",
+            border: isAddButtonHovered() ? "1px solid var(--color-file-tree-button-hover-border, rgba(59, 130, 246, 0.4))" : "1px solid var(--color-file-tree-button-border, rgba(0, 0, 0, 0.15))",
             "text-align": "center",
             "line-height": "17px",
             opacity: showHoverControls() ? 1 : 0,
             cursor: "pointer",
             "border-radius": "3px",
             transition: "all 0.15s ease",
-            color: isAddButtonHovered() ? "rgba(59, 130, 246, 0.9)" : "rgba(0, 0, 0, 0.5)",
+            color: isAddButtonHovered() ? "var(--color-file-tree-button-hover-text, rgba(59, 130, 246, 0.9))" : "var(--color-file-tree-button-text, rgba(0, 0, 0, 0.5))",
             "font-size": "14px",
             "font-weight": "500",
           }}
@@ -433,7 +433,7 @@ const TemplateNodeItem = ({ template }: { template: typeof TEMPLATE_NODES[number
         "align-items": "center",
         padding: "4px 8px 4px 16px",
         cursor: "pointer",
-        background: isHovered() ? "rgba(0, 0, 0, 0.1)" : "transparent",
+        background: isHovered() ? "var(--color-file-tree-item-hover-bg, rgba(0, 0, 0, 0.1))" : "transparent",
         "user-select": "none",
         margin: "2px 8px",
         "border-radius": "4px",
@@ -450,7 +450,7 @@ const TemplateNodeItem = ({ template }: { template: typeof TEMPLATE_NODES[number
       <span
         style={{
           "font-size": "13px",
-          color: "#333",
+          color: "var(--color-sidebar-text, #333)",
           "font-family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
         }}
       >
@@ -587,7 +587,7 @@ const OpenFileItem = ({ path, file }: { path: string; file: { name: string; type
         "align-items": "center",
         padding: "4px 8px 4px 16px",
         cursor: "pointer",
-        background: isSelected() ? "rgba(0, 150, 255, 0.3)" : isHovered() ? "rgba(0, 0, 0, 0.1)" : "transparent",
+        background: isSelected() ? "var(--color-file-tree-item-selected-bg, rgba(0, 150, 255, 0.3))" : isHovered() ? "var(--color-file-tree-item-hover-bg, rgba(0, 0, 0, 0.1))" : "transparent",
         "user-select": "none",
         margin: "2px 8px",
         "border-radius": "4px",
@@ -604,7 +604,7 @@ const OpenFileItem = ({ path, file }: { path: string; file: { name: string; type
       <span
         style={{
           "font-size": "13px",
-          color: "#333",
+          color: "var(--color-sidebar-text, #333)",
           "font-family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
           overflow: "hidden",
           "text-overflow": "ellipsis",
@@ -622,12 +622,12 @@ const OpenFileItem = ({ path, file }: { path: string; file: { name: string; type
           }}
           style={{
             padding: "0px 4px",
-            border: "1px solid rgba(0, 0, 0, 0.2)",
+            border: "1px solid var(--color-file-tree-item-close-border, rgba(0, 0, 0, 0.2))",
             margin: "0 2px",
-            color: "rgba(0, 0, 0, 0.6)",
+            color: "var(--color-file-tree-item-close-text, rgba(0, 0, 0, 0.6))",
             "min-width": "16px",
             height: "16px",
-            background: "rgba(0, 0, 0, 0.06)",
+            background: "var(--color-file-tree-item-close-bg, rgba(0, 0, 0, 0.06))",
             "text-align": "center",
             "line-height": "15px",
             cursor: "pointer",
@@ -836,22 +836,22 @@ export const FileTree = ({
                     padding: 5px 10px;
                     font-size: 11px;
                     font-weight: 500;
-                    background: rgba(0, 0, 0, 0.04);
-                    color: rgba(0, 0, 0, 0.55);
-                    border: 1px solid rgba(0, 0, 0, 0.15);
+                    background: var(--color-file-tree-button-bg, rgba(0, 0, 0, 0.04));
+                    color: var(--color-file-tree-button-text, rgba(0, 0, 0, 0.55));
+                    border: 1px solid var(--color-file-tree-button-border, rgba(0, 0, 0, 0.15));
                     border-radius: 4px;
                     transition: all 0.15s ease;
                     user-select: none;
                     -webkit-user-select: none;`}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(59, 130, 246, 0.12)';
-                    e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-                    e.currentTarget.style.color = 'rgba(59, 130, 246, 0.9)';
+                    e.currentTarget.style.background = 'var(--color-file-tree-button-hover-bg, rgba(59, 130, 246, 0.12))';
+                    e.currentTarget.style.borderColor = 'var(--color-file-tree-button-hover-border, rgba(59, 130, 246, 0.3))';
+                    e.currentTarget.style.color = 'var(--color-file-tree-button-hover-text, rgba(59, 130, 246, 0.9))';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(0, 0, 0, 0.04)';
-                    e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.15)';
-                    e.currentTarget.style.color = 'rgba(0, 0, 0, 0.55)';
+                    e.currentTarget.style.background = 'var(--color-file-tree-button-bg, rgba(0, 0, 0, 0.04))';
+                    e.currentTarget.style.borderColor = 'var(--color-file-tree-button-border, rgba(0, 0, 0, 0.15))';
+                    e.currentTarget.style.color = 'var(--color-file-tree-button-text, rgba(0, 0, 0, 0.55))';
                   }}
                   onClick={() => {
                     setNumResultsToShow(
@@ -928,7 +928,7 @@ const TreeUL = ({
           bottom: "4px",
           width: "2px",
           opacity: .3,
-          "background-color": isLeftBarVisible() ? "#256491ff" : "transparent",
+          "background-color": isLeftBarVisible() ? "var(--color-file-tree-indicator-bg, #256491ff)" : "transparent",
         }}
       />
       {children}
@@ -963,7 +963,7 @@ const TreeLI = ({
         "font-size": "13px",
         cursor: "default",
         position: "relative",
-        background: isFolderDropTarget() ? "rgba(0, 150, 255, 0.2)" : "transparent",
+        background: isFolderDropTarget() ? "var(--color-file-tree-folder-drop-target-bg, rgba(0, 150, 255, 0.2))" : "transparent",
         ...style,
       }}
       {...props}
@@ -1535,13 +1535,13 @@ const NodeName = ({
 
   const focusedTabBackground = () => {
     if (isNodeAncestorBeingEdited()) {
-      return "rgba(0, 150, 255, 0.3)";
+      return "var(--color-file-tree-item-selected-bg, rgba(0, 150, 255, 0.3))";
     }
     if (isSelected()) {
-      return "rgba(0, 150, 255, 0.3)";
+      return "var(--color-file-tree-item-selected-bg, rgba(0, 150, 255, 0.3))";
     }
     if (isHovered()) {
-      return "rgba(0, 0, 0, 0.1)";
+      return "var(--color-file-tree-item-hover-bg, rgba(0, 0, 0, 0.1))";
     }
     return "transparent";
   };
@@ -1793,7 +1793,7 @@ const NodeName = ({
           width: "8px",
           height: "23px",
           "margin-left": "0px",
-          color: "#666",
+          color: "var(--color-file-tree-icon-color, #666)",
           background: "transparent",
           display: "flex",
           "align-items": "center",
@@ -1871,7 +1871,7 @@ const NodeName = ({
         >
           <span
             style={{
-              color: fileDecoration()?.color || "#333",
+              color: fileDecoration()?.color || "var(--color-sidebar-text, #333)",
               background: "transparent",
               opacity: fileDecoration()?.faded ? 0.5 : 1,
             }}
@@ -1891,17 +1891,18 @@ const NodeName = ({
           </span>
 
           <Show when={isDirty()}>
-            <span
-              style={{
-                "margin-left": "5px",
-                "font-weight": "bold",
-                "font-size": "20px",
-                "line-height": "12px",
-                "margin-top": "2px",
-              }}
-            >
-              •
-            </span>
+        <span
+          style={{
+            "margin-left": "5px",
+            "font-weight": "bold",
+            "font-size": "20px",
+            "line-height": "12px",
+            "margin-top": "2px",
+            color: "var(--color-file-tree-dirty-indicator, rgba(0, 0, 0, 0.8))",
+          }}
+        >
+          •
+        </span>
           </Show>
 
           {/* Plugin file decoration badge */}
@@ -1910,7 +1911,7 @@ const NodeName = ({
               style={{
                 "margin-left": "4px",
                 "font-size": "11px",
-                color: fileDecoration()?.badgeColor || "#666",
+                color: fileDecoration()?.badgeColor || "var(--color-file-tree-icon-color, #666)",
               }}
               title={fileDecoration()?.tooltip}
             >
@@ -1960,12 +1961,12 @@ export const FileTreeItemControlButton = ({
       title={title}
       style={{
         padding: "0px 4px",
-        border: isHovered() ? "1px solid rgba(59, 130, 246, 0.4)" : "1px solid rgba(0, 0, 0, 0.2)",
+        border: isHovered() ? "1px solid var(--color-file-tree-item-close-hover-border, rgba(59, 130, 246, 0.4))" : "1px solid var(--color-file-tree-item-close-border, rgba(0, 0, 0, 0.2))",
         margin: "0 2px",
-        color: isHovered() ? "rgba(59, 130, 246, 0.9)" : "rgba(0, 0, 0, 0.6)",
+        color: isHovered() ? "var(--color-file-tree-item-close-hover-text, rgba(59, 130, 246, 0.9))" : "var(--color-file-tree-item-close-text, rgba(0, 0, 0, 0.6))",
         "min-width": "16px",
         height: "16px",
-        background: isHovered() ? "rgba(59, 130, 246, 0.15)" : "rgba(0, 0, 0, 0.06)",
+        background: isHovered() ? "var(--color-file-tree-item-close-hover-bg, rgba(59, 130, 246, 0.15))" : "var(--color-file-tree-item-close-bg, rgba(0, 0, 0, 0.06))",
         "text-align": "center",
         "line-height": "15px",
         opacity: 1,
@@ -2156,22 +2157,22 @@ const FindAllResultProjectTree = ({ projectId, projectNode }) => {
               padding: 5px 10px;
               font-size: 11px;
               font-weight: 500;
-              background: rgba(0, 0, 0, 0.04);
-              color: rgba(0, 0, 0, 0.55);
-              border: 1px solid rgba(0, 0, 0, 0.15);
+              background: var(--color-file-tree-button-bg, rgba(0, 0, 0, 0.04));
+              color: var(--color-file-tree-button-text, rgba(0, 0, 0, 0.55));
+              border: 1px solid var(--color-file-tree-button-border, rgba(0, 0, 0, 0.15));
               border-radius: 4px;
               transition: all 0.15s ease;
               user-select: none;
               -webkit-user-select: none;`}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(59, 130, 246, 0.12)';
-              e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-              e.currentTarget.style.color = 'rgba(59, 130, 246, 0.9)';
+              e.currentTarget.style.background = 'var(--color-file-tree-button-hover-bg, rgba(59, 130, 246, 0.12))';
+              e.currentTarget.style.borderColor = 'var(--color-file-tree-button-hover-border, rgba(59, 130, 246, 0.3))';
+              e.currentTarget.style.color = 'var(--color-file-tree-button-hover-text, rgba(59, 130, 246, 0.9))';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(0, 0, 0, 0.04)';
-              e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.15)';
-              e.currentTarget.style.color = 'rgba(0, 0, 0, 0.55)';
+              e.currentTarget.style.background = 'var(--color-file-tree-button-bg, rgba(0, 0, 0, 0.04))';
+              e.currentTarget.style.borderColor = 'var(--color-file-tree-button-border, rgba(0, 0, 0, 0.15))';
+              e.currentTarget.style.color = 'var(--color-file-tree-button-text, rgba(0, 0, 0, 0.55))';
             }}
             onClick={() => {
               setNumResultsToShow(numResultsToShow() + numResultsToIncremenet);

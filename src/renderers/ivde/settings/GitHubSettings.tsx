@@ -203,7 +203,7 @@ export const GitHubSettings = (): JSXElement => {
 
   return (
     <div
-      style="background: #404040; color: #d9d9d9; height: 100vh; overflow: hidden; display: flex; flex-direction: column;"
+      style="background: var(--color-settings-body-bg, #404040); color: var(--color-settings-input-text); height: 100vh; overflow: hidden; display: flex; flex-direction: column;"
     >
       <form onSubmit={onSubmit} style="height: 100%; display: flex; flex-direction: column;">
         <SettingsPaneSaveClose label="Git & GitHub" />
@@ -211,7 +211,7 @@ export const GitHubSettings = (): JSXElement => {
         <div style="flex: 1; overflow-y: auto; padding: 0; margin-bottom: 60px;">
           {/* Status Banner */}
           <Show when={statusMessage()}>
-            <div style="background: #2b2b2b; padding: 8px 16px; font-size: 12px; color: #51cf66; border-bottom: 1px solid #333;">
+            <div style="background: var(--color-settings-input-bg); padding: 8px 16px; font-size: 12px; color: var(--color-status-bar-success, #51cf66); border-bottom: 1px solid var(--color-settings-input-border, #333);">
               {statusMessage()}
             </div>
           </Show>
@@ -224,7 +224,7 @@ export const GitHubSettings = (): JSXElement => {
                 value={gitName()}
                 onInput={(e) => setGitName(e.currentTarget.value)}
                 placeholder="Your Name"
-                style="background: #2b2b2b; border: 1px solid #555; color: #d9d9d9; padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box;"
+                style="background: var(--color-settings-input-bg); border: 1px solid var(--color-settings-input-border); color: var(--color-settings-input-text); padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box;"
               />
               <div style="font-size: 10px; color: #777; margin-top: 4px;">
                 Used for commit author attribution
@@ -237,7 +237,7 @@ export const GitHubSettings = (): JSXElement => {
                 value={gitEmail()}
                 onInput={(e) => setGitEmail(e.currentTarget.value)}
                 placeholder="your@email.com"
-                style="background: #2b2b2b; border: 1px solid #555; color: #d9d9d9; padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box;"
+                style="background: var(--color-settings-input-bg); border: 1px solid var(--color-settings-input-border); color: var(--color-settings-input-text); padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box;"
               />
               <div style="font-size: 10px; color: #777; margin-top: 4px;">
                 Used for commit author attribution
@@ -249,7 +249,7 @@ export const GitHubSettings = (): JSXElement => {
                 type="button"
                 onClick={saveIdentity}
                 style={{
-                  background: identitySaved() ? "#51cf66" : "#0969da",
+                  background: identitySaved() ? "var(--color-status-bar-success, #51cf66)" : "var(--color-github-repo-branch-selected-bg, #0969da)",
                   color: "white",
                   border: "none",
                   padding: "8px 16px",
@@ -272,17 +272,17 @@ export const GitHubSettings = (): JSXElement => {
                 <>
                   {/* Not connected - show input fields */}
                   <SettingsPaneField label="">
-                    <div style="background: #1a1a1a; border: 1px solid #333; padding: 12px; border-radius: 4px; margin-bottom: 8px;">
-                      <div style="font-size: 11px; color: #ffa500; font-weight: 500; margin-bottom: 6px;">
+                    <div style="background: #1a1a1a; border: 1px solid var(--color-settings-input-border, #333); padding: 12px; border-radius: 4px; margin-bottom: 8px;">
+                      <div style="font-size: 11px; color: var(--color-status-bar-warning, #ffa500); font-weight: 500; margin-bottom: 6px;">
                         Use a Classic PAT
                       </div>
-                      <div style="font-size: 11px; color: #999; line-height: 1.4;">
+                      <div style="font-size: 11px; color: var(--color-info-box-text); line-height: 1.4;">
                         Fine-grained PATs may not work for push/pull. Create a <strong>Classic</strong> token with <code>repo</code> scope.
                       </div>
                       <a
                         href="#"
                         onClick={openTokenPage}
-                        style="display: inline-block; margin-top: 8px; font-size: 11px; color: #0969da; text-decoration: none;"
+                        style="display: inline-block; margin-top: 8px; font-size: 11px; color: var(--color-github-repo-branch-selected-bg, #0969da); text-decoration: none;"
                       >
                         Create Classic Token on GitHub
                       </a>
@@ -295,7 +295,7 @@ export const GitHubSettings = (): JSXElement => {
                       value={usernameInput()}
                       onInput={(e) => setUsernameInput(e.currentTarget.value)}
                       placeholder="your-github-username"
-                      style="background: #2b2b2b; border: 1px solid #555; color: #d9d9d9; padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box;"
+                      style="background: var(--color-settings-input-bg); border: 1px solid var(--color-settings-input-border); color: var(--color-settings-input-text); padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box;"
                     />
                   </SettingsPaneField>
 
@@ -305,9 +305,9 @@ export const GitHubSettings = (): JSXElement => {
                       value={patInput()}
                       onInput={(e) => setPatInput(e.currentTarget.value)}
                       placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                      style="background: #2b2b2b; border: 1px solid #555; color: #d9d9d9; padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box; font-family: 'Fira Code', monospace;"
+                      style="background: var(--color-settings-input-bg); border: 1px solid var(--color-settings-input-border); color: var(--color-settings-input-text); padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%; box-sizing: border-box; font-family: 'Fira Code', monospace;"
                     />
-                    <div style="font-size: 10px; color: #777; margin-top: 4px;">
+                    <div style="font-size: 10px; color: var(--color-text-tertiary, #777); margin-top: 4px;">
                       Classic tokens start with <code>ghp_</code>
                     </div>
                   </SettingsPaneField>
@@ -318,7 +318,7 @@ export const GitHubSettings = (): JSXElement => {
                       onClick={connectGitHub}
                       disabled={isVerifyingPat()}
                       style={{
-                        background: isVerifyingPat() ? "#555" : "#51cf66",
+                        background: isVerifyingPat() ? "var(--color-button-disabled, #555)" : "var(--color-status-bar-success, #51cf66)",
                         color: "white",
                         border: "none",
                         padding: "8px 16px",
@@ -334,7 +334,7 @@ export const GitHubSettings = (): JSXElement => {
 
                   <Show when={!hasKeychainHelper()}>
                     <SettingsPaneField label="">
-                      <div style="background: #3d2020; border: 1px solid #5a3030; padding: 12px; border-radius: 4px; font-size: 11px; color: #ff9999;">
+                      <div style="background: rgba(255, 107, 107, 0.2); border: 1px solid var(--color-status-bar-error, #ff6b6b); padding: 12px; border-radius: 4px; font-size: 11px; color: var(--color-status-bar-error, #ff6b6b);">
                         macOS Keychain helper not available. Install Xcode Command Line Tools to enable secure credential storage.
                       </div>
                     </SettingsPaneField>
@@ -344,7 +344,7 @@ export const GitHubSettings = (): JSXElement => {
             >
               {/* Connected - show status */}
               <SettingsPaneField label="">
-                <div style="background: #2b2b2b; padding: 16px; border-radius: 4px;">
+                <div style="background: var(--color-settings-input-bg); padding: 16px; border-radius: 4px;">
                   <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                     <img
                       src={userInfo()?.avatar_url}
@@ -352,10 +352,10 @@ export const GitHubSettings = (): JSXElement => {
                       alt="GitHub Avatar"
                     />
                     <div style="display: flex; flex-direction: column; flex: 1;">
-                      <span style="font-size: 14px; font-weight: 500; color: #d9d9d9;">
+                      <span style="font-size: 14px; font-weight: 500; color: var(--color-settings-input-text);">
                         {userInfo()?.name || userInfo()?.login}
                       </span>
-                      <span style="font-size: 12px; color: #999;">
+                      <span style="font-size: 12px; color: var(--color-info-box-text);">
                         @{userInfo()?.login}
                       </span>
                     </div>
@@ -369,7 +369,7 @@ export const GitHubSettings = (): JSXElement => {
                         "border-radius": "50%",
                         background: "#51cf66",
                       }}></div>
-                      <span style="font-size: 11px; color: #999;">
+                      <span style="font-size: 11px; color: var(--color-info-box-text);">
                         {userInfo()?.public_repos || 0} public repos, {userInfo()?.private_repos || 0} private repos
                       </span>
                     </div>
@@ -378,9 +378,9 @@ export const GitHubSettings = (): JSXElement => {
                         width: "8px",
                         height: "8px",
                         "border-radius": "50%",
-                        background: keychainCredentials().hasCredentials ? "#51cf66" : "#ffa500",
+                        background: keychainCredentials().hasCredentials ? "var(--color-status-bar-success, #51cf66)" : "var(--color-status-bar-warning, #ffa500)",
                       }}></div>
-                      <span style="font-size: 11px; color: #999;">
+                      <span style="font-size: 11px; color: var(--color-info-box-text);">
                         {keychainCredentials().hasCredentials
                           ? "Push/pull credentials stored in Keychain"
                           : "Push/pull credentials not stored"}
@@ -394,7 +394,7 @@ export const GitHubSettings = (): JSXElement => {
                 <button
                   type="button"
                   onClick={disconnect}
-                  style="background: #ff6b6b; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%;"
+                  style="background: var(--color-settings-button-error-bg, #ff6b6b); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%;"
                 >
                   Disconnect GitHub
                 </button>

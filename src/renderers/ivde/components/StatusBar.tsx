@@ -51,9 +51,9 @@ export const StatusBar = () => {
         display: "flex",
         height: "22px",
         width: "100%",
-        background: "#181818",
-        "border-top": "1px solid #111",
-        color: "#fff",
+        background: "var(--color-status-bar, #181818)",
+        "border-top": "1px solid var(--color-status-bar-border, #111)",
+        color: "var(--color-text, #fff)",
         "font-size": "11px",
         "align-items": "center",
         padding: "10px",
@@ -69,7 +69,7 @@ export const StatusBar = () => {
               <div
                 style={{
                   margin: "0 5px",
-                  color: item.color || "#999",
+                  color: item.color || "var(--color-status-bar-item-default, #999)",
                   cursor: item.hasSettings ? "pointer" : "default",
                 }}
                 title={item.hasSettings ? `${item.tooltip || item.text} (click to configure)` : item.tooltip}
@@ -99,7 +99,7 @@ export const StatusBar = () => {
               <div
                 style={{
                   margin: "0 5px",
-                  color: item.color || "#999",
+                  color: item.color || "var(--color-status-bar-item-default, #999)",
                   cursor: item.hasSettings ? "pointer" : "default",
                 }}
                 title={item.hasSettings ? `${item.tooltip || item.text} (click to configure)` : item.tooltip}
@@ -305,14 +305,14 @@ const Llama = () => {
     const status = llamaStatus();
     
     if (status.isPending) {
-      return "#ffa500"; // Orange for pending
+      return "var(--color-status-bar-pending, #ffa500)"; // Orange for pending
     }
     
     if (!status.isInstalled || !status.isRunning || !status.modelAvailable) {
-      return "#ff6b6b"; // Red for issues
+      return "var(--color-status-bar-error, #ff6b6b)"; // Red for issues
     }
     
-    return "#51cf66"; // Green for ready
+    return "var(--color-status-bar-success, #51cf66)"; // Green for ready
   };
 
   const shouldShowSpinner = () => {
@@ -339,8 +339,8 @@ const Llama = () => {
           style={{
             width: "10px",
             height: "10px",
-            border: "1px solid #666",
-            "border-top": "1px solid #fff",
+            border: "1px solid var(--color-status-bar-indicator-border, #666)",
+            "border-top": "1px solid var(--color-status-bar-indicator-highlight, #fff)",
             "border-radius": "50%",
             animation: "spin 1s linear infinite"
           }}
@@ -380,7 +380,7 @@ const GitHub = () => {
   };
 
   const getStatusColor = () => {
-    return isConnected() ? "#51cf66" : "#666"; // Green if connected, gray if not
+    return isConnected() ? "var(--color-status-bar-success, #51cf66)" : "var(--color-status-bar-disconnected, #666)"; // Green if connected, gray if not
   };
 
   return (
@@ -422,9 +422,9 @@ const ColabCloud = () => {
   };
 
   const getStatusColor = () => {
-    if (!isConnected()) return "#666"; // Gray if not connected
-    if (!state.appSettings.colabCloud.emailVerified) return "#ffa500"; // Orange if email not verified
-    return "#51cf66"; // Green if fully connected
+    if (!isConnected()) return "var(--color-status-bar-disconnected, #666)"; // Gray if not connected
+    if (!state.appSettings.colabCloud.emailVerified) return "var(--color-status-bar-warning, #ffa500)"; // Orange if email not verified
+    return "var(--color-status-bar-success, #51cf66)"; // Green if fully connected
   };
 
   return (
@@ -465,7 +465,7 @@ const AnalyticsConsent = () => {
       <div
         style={{
           margin: "0 5px",
-          color: "#ffa500", // Orange to indicate action needed
+          color: "var(--color-status-bar-warning, #ffa500)", // Orange to indicate action needed
           cursor: "pointer",
           "white-space": "nowrap",
           "font-size": "11px"
@@ -492,7 +492,7 @@ const Plugins = () => {
     <div
       style={{
         margin: "0 5px",
-        color: "#999",
+        color: "var(--color-status-bar-item-default, #999)",
         cursor: "pointer",
         "white-space": "nowrap",
         "font-size": "11px"

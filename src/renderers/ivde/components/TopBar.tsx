@@ -55,7 +55,7 @@ export const TopBar = () => {
       style={{
         height: "40px",
         width: "100%",
-        background: "#222",
+        background: "var(--color-top-bar, #222)",
         display: "flex",
       }}
     >
@@ -64,8 +64,8 @@ export const TopBar = () => {
           "margin-left": "80px",
           width: "24px",
           height: "24px",
-          background: "#333",
-          color: "#888",
+          background: "var(--color-sidebar-toggle-bg, #333)",
+          color: "var(--color-sidebar-toggle-icon, #888)",
           "border-radius": "4px",
           "text-align": "center",
           "vertical-align": "middle",
@@ -73,7 +73,7 @@ export const TopBar = () => {
           "margin-top": "7px",
           cursor: "pointer",
           "-webkit-user-select": "none",
-          border: "1px solid #1f1f1f",
+          border: "1px solid var(--color-sidebar-toggle-border, #1f1f1f)",
           display: "flex",
           "align-items": "center",
           "justify-content": "center",
@@ -102,7 +102,7 @@ export const TopBar = () => {
           "margin-top": "7px",
           cursor: "pointer",
           "-webkit-user-select": "none",
-          border: "1px solid #1f1f1f",
+          border: "1px solid var(--color-top-bar-button-border, #1f1f1f)",
           display: "flex",
           "align-items": "center",
           "justify-content": "center",
@@ -516,12 +516,12 @@ const CommandPalette = ({ setOpen }: { setOpen: (value: boolean) => void }) => {
         width: 300px;
         border-radius: 7px;
         border: none;
-        background: #444;
+        background: var(--color-toolbar-search-btn-bg, #444);
         padding: 4px;
         text-align: center;
         font-family: Helvetica;
         font-size: 14px;
-        color: #999;
+        color: var(--color-text-tertiary, #999);
         cursor: pointer;
       `}
       >
@@ -541,30 +541,30 @@ const CommandPalette = ({ setOpen }: { setOpen: (value: boolean) => void }) => {
           style={`
           position: absolute;
           top: 8px;
-          background: #222;
+          background: var(--color-toolbar-menu-bg, #222);
           z-index: 999999;
           width: 500px;
           min-height: 200px;
           padding: 10px;
           border-radius: 8px;
-          border: 1px solid #444;
+          border: 1px solid var(--color-toolbar-menu-border, #444);
           display: flex;
           flex-direction: column;
           pointer-events: auto;
           box-shadow: 0 9px 10px 2px #170808;
           opacity: 0;
           transform: translateY(-10px);
-          animation: fadeIn 0.4s forwards;          
+          animation: fadeIn 0.4s forwards;
         `}
         >
           <input
             ref={(r) => (input = r)}
             style={`
-              background: #393939;
-              border: 1px solid #444;
+              background: var(--color-toolbar-input-bg, #39393);
+              border: 1px solid var(--color-toolbar-input-border, #444);
               border-radius: 4px;
               padding: 4px;
-              color: #ddd;
+              color: var(--color-toolbar-input-text, #ddd);
               margin-bottom: 6px;
             `}
             autofocus={true}
@@ -599,10 +599,10 @@ const CommandPalette = ({ setOpen }: { setOpen: (value: boolean) => void }) => {
                     {isFirstInSection() && (
                       <h3
                         style={`
-                      color: #888;
+                      color: var(--color-toolbar-section-title, #888);
                       padding: 5px;
                       font-size: 12px;
-                      border-bottom: 1px solid #333;
+                      border-bottom: 1px solid var(--color-toolbar-section-border, #333);
                       margin: 0 3px;
                       margin-top: ${index() > 0 ? '10px' : '0'};`}
                       >
@@ -662,8 +662,8 @@ const CommandPaletteItem = ({ icon, name, description, onSelect, isSelected }: {
       ref={(el) => (itemRef = el)}
       style={`
     display: flex;
-    background: ${isSelected?.() ? "#094771" : hover() ? "#2a2d2e" : "transparent"};
-    color: ${hover() || isSelected?.() ? "#cccccc" : "#cccccc"};
+    background: ${isSelected?.() ? "var(--color-menu-item-selected-bg, #094771)" : hover() ? "var(--color-menu-item-hover-bg, #2a2d2e)" : "transparent"};
+    color: var(--color-menu-item-text, #cccccc);
     padding: 3px 6px;
     border-radius: 3px;
     align-items: center;
@@ -689,7 +689,7 @@ const CommandPaletteItem = ({ icon, name, description, onSelect, isSelected }: {
 const WorkspaceMenu = ({ children }: { children: JSX.Element }) => {
   return (
     <Show when={state.workspace.id}>
-      <div style="-webkit-user-select: none; font-size: 13px; color: #ddd;margin: 8px 0px; padding: 5px; ">
+      <div style="-webkit-user-select: none; font-size: 13px; color: var(--color-workspace-menu-text, #ddd);margin: 8px 0px; padding: 5px; ">
         <span
           style={`border-radius: 4px;padding: 5px 17px;   font-size: 13px; cursor: pointer;`}
           class="workspace-menu-button"
@@ -715,7 +715,7 @@ const WorkspaceMenu = ({ children }: { children: JSX.Element }) => {
           <Show when={state.ui.showWorkspaceMenu}>
             <div
               class="workspace-menu webview-overlay"
-              style="border-radius: 4px; position: absolute; top: 8px; right: 0px;min-width:200px; text-align: right; border: 2px solid black; padding:2px; z-index: 2; background: #000"
+              style="border-radius: 4px; position: absolute; top: 8px; right: 0px;min-width:200px; text-align: right; border: 2px solid var(--color-workspace-menu-border, #000); padding:2px; z-index: 2; background: var(--color-workspace-menu-bg, #000)"
               onClick={() => setState("ui", "showWorkspaceMenu", false)}
             >
               <ul style="list-style: none;">{children}</ul>
@@ -785,7 +785,7 @@ const Update = () => {
       >
         <span
           style={`-webkit-user-select: none;border-radius: 4px;  padding: 5px 17px; font-size: 13px; box-sizing: border-box; color: ${
-            hasError() ? "#fff" : "#222"
+            hasError() ? "var(--color-action-button-error-text, #fff)" : "var(--color-action-button-text, #222)"
           }; opacity: ${
             hasError() || isReady() ? 1 : 0.7
           };`}

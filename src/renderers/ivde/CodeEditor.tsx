@@ -12,6 +12,12 @@ import {
   openFileAt,
 } from "./store";
 
+// Export monaco and setEditorTheme to global scope for theme switching
+if (typeof window !== 'undefined') {
+  (window as any).monaco = monaco;
+  (window as any).setEditorTheme = setEditorTheme;
+}
+
 // import "monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution";
 import "monaco-editor/esm/vs/language/typescript/monaco.contribution";
 import "monaco-editor/esm/vs/language/css/monaco.contribution";
@@ -58,6 +64,22 @@ monaco.editor.defineTheme("darkPlus", {
   colors: {},
 });
 
+monaco.editor.defineTheme("lightPlus", {
+  base: "vs",
+  inherit: true,
+  rules: [
+    { token: "keyword", foreground: "0000FF" },
+    { token: "identifier", foreground: "001080" },
+    { token: "string", foreground: "A31515" },
+    { token: "number", foreground: "098658" },
+    { token: "type", foreground: "267F99" },
+    { token: "comment", foreground: "008000" },
+    { token: "unusedIdentifier", foreground: "000000" },
+  ],
+  encodedTokensColors: [],
+  colors: {},
+});
+
 const editors: { [id: string]: monaco.editor.IStandaloneCodeEditor } = {};
 
 const tsSeverityToMonacoSeverity = (
@@ -81,6 +103,24 @@ const reSizeEditors = () => {
   }
 };
 
+const setEditorTheme = (theme: 'default' | 'dark' | 'light') => {
+  const editorTheme = theme === 'light' ? 'lightPlus' : 'darkPlus';
+  console.log('Setting editor theme:', theme, '->', editorTheme);
+  
+  // Set the global theme
+  monaco.editor.setTheme(editorTheme);
+  
+  // Also update all existing editors
+  for (const key in editors) {
+    const editor = editors[key];
+    if (editor) {
+      editor.updateOptions({
+        theme: editorTheme
+      });
+    }
+  }
+};
+
 createEffect(
   on(
     () => state.ui.showSidebar,
@@ -89,6 +129,14 @@ createEffect(
     }
   )
 );
+
+// Listen for theme changes using store subscription
+createEffect(() => {
+  // Access the theme property to create a dependency
+  const theme = state.appSettings.theme || 'default';
+  console.log('Theme changed detected:', theme);
+  setEditorTheme(theme);
+});
 
 monaco.languages.register({
   id: "typescript",
@@ -508,8 +556,12 @@ export const Editor = ({ currentTabId }: { currentTabId: string }) => {
       return;
     }
 
+    // Determine initial theme based on app settings
+    const initialTheme = state.appSettings.theme || 'default';
+    const initialEditorTheme = initialTheme === 'light' ? 'lightPlus' : 'darkPlus';
+    
     editor = monaco.editor.create(editorRef, {
-      theme: "vs-dark",
+      theme: initialEditorTheme,
       hover: { enabled: true },
       minimap: { enabled: true },
       lineNumbers: "on",
@@ -550,7 +602,8 @@ export const Editor = ({ currentTabId }: { currentTabId: string }) => {
       }
     });
 
-    monaco.editor.setTheme("darkPlus");
+    // Set initial editor theme based on current app theme
+    setEditorTheme(initialTheme);
 
     resizeObserver = new ResizeObserver(() => {
       editor.layout();
@@ -910,19 +963,19 @@ export const Editor = ({ currentTabId }: { currentTabId: string }) => {
 
   return (
     <div style="height: 100%; display: flex; flex-direction: column ">
-      <div style=" padding: 3px 15px 4px; color: #bbb; font-size: 12px;">
+      <div style=" padding: 3px 15px 4px; color: var(--color-editor-breadcrumb, #bbb); font-size: 12px;">
         <For each={getBreadcrumbParts()}>
           {(part, i) => {
             if (i() === 0) {
               // project name
               return (
-                <span style="margin-right: 5px; color: #60a1d0 ">{part}:</span>
+                <span style="margin-right: 5px; color: var(--color-editor-breadcrumb-highlight,#60a1d0) ">{part}:</span>
               );
             } else {
               return (
                 <span style="margin-right: 5px">
                   <Show when={i() > 1}>
-                    <span style="color: #888;margin-right: 5px">{"/"}</span>
+                    <span style="color: var(--color-text-tertiary, #888);margin-right: 5px">{"/"}</span>
                   </Show>
                   {part}
                 </span>

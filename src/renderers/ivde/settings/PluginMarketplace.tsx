@@ -199,8 +199,8 @@ export const PluginMarketplace = (): JSXElement => {
   return (
     <div
       style={{
-        background: "#404040",
-        color: "#d9d9d9",
+        background: "var(--color-marketplace-body-bg, #404040)",
+        color: "var(--color-settings-input-text, #d9d9d9)",
         height: "100vh",
         overflow: "hidden",
         display: "flex",
@@ -268,7 +268,7 @@ export const PluginMarketplace = (): JSXElement => {
           onClick={() => setActiveTab("browse")}
           style={{
             padding: "10px 20px",
-            background: activeTab() === "browse" ? "#404040" : "transparent",
+            background: activeTab() === "browse" ? "var(--color-marketplace-tab-inactive-bg, #404040)" : "var(--color-marketplace-tab-inactive-bg, transparent)",
             border: "none",
             "border-bottom": activeTab() === "browse" ? "2px solid #0073e6" : "2px solid transparent",
             color: activeTab() === "browse" ? "#fff" : "#999",

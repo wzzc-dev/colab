@@ -323,7 +323,7 @@ export const PluginSettings = (): JSXElement => {
 
   return (
     <div
-      style="background: #404040; color: #d9d9d9; height: 100vh; overflow: hidden; display: flex; flex-direction: column;"
+      style="background: var(--color-settings-body-bg, #404040); color: var(--color-settings-input-text, #d9d9d9); height: 100vh; overflow: hidden; display: flex; flex-direction: column;"
     >
       <div style="height: 100%; display: flex; flex-direction: column;">
         <div
@@ -345,20 +345,20 @@ export const PluginSettings = (): JSXElement => {
 
         <div style="flex: 1; overflow-y: auto; padding: 0; padding-bottom: 40px;">
           <Show when={loading()}>
-            <div style="padding: 20px; text-align: center; color: #999;">
+            <div style="padding: 20px; text-align: center; color: var(--color-info-box-text);">
               Loading settings...
             </div>
           </Show>
 
           <Show when={!loading() && !schema()}>
-            <div style="padding: 20px; text-align: center; color: #999;">
+            <div style="padding: 20px; text-align: center; color: var(--color-info-box-text);">
               This plugin has no configurable settings.
             </div>
           </Show>
 
           <Show when={!loading() && schema()}>
             <Show when={schema()?.description}>
-              <div style="padding: 16px; color: #999; font-size: 12px; border-bottom: 1px solid #333;">
+              <div style="padding: 16px; color: var(--color-info-box-text); font-size: 12px; border-bottom: 1px solid #333;">
                 {schema()?.description}
               </div>
             </Show>
@@ -377,7 +377,7 @@ export const PluginSettings = (): JSXElement => {
                             style="margin-top: 2px; flex-shrink: 0;"
                           />
                           <Show when={field.description}>
-                            <span style="font-size: 11px; color: #999; line-height: 1.4;">
+                            <span style="font-size: 11px; color: var(--color-info-box-text); line-height: 1.4;">
                               {field.description}
                             </span>
                           </Show>
@@ -389,10 +389,10 @@ export const PluginSettings = (): JSXElement => {
                           type="text"
                           value={getValue(field) as string}
                           onInput={(e) => handleValueChange(field.key, e.currentTarget.value)}
-                          style="background: #2b2b2b;border-radius: 4px;border: 1px solid #212121;color: #d9d9d9;outline: none;cursor: text;display: block;font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;font-size: 12px;padding-top: 8px;padding-right: 9px;padding-bottom: 8px;padding-left: 9px;line-height: 14px;width: 100%;box-sizing: border-box;"
+                          style="background: var(--color-settings-input-bg);border-radius: 4px;border: 1px solid #212121;color: var(--color-settings-input-text);outline: none;cursor: text;display: block;font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;font-size: 12px;padding-top: 8px;padding-right: 9px;padding-bottom: 8px;padding-left: 9px;line-height: 14px;width: 100%;box-sizing: border-box;"
                         />
                         <Show when={field.description}>
-                          <div style="font-size: 11px; color: #999; margin-top: 4px;">
+                          <div style="font-size: 11px; color: var(--color-info-box-text); margin-top: 4px;">
                             {field.description}
                           </div>
                         </Show>
@@ -462,7 +462,7 @@ export const PluginSettings = (): JSXElement => {
                           </div>
                         </Show>
                         <Show when={field.description && !validationStatuses()[field.key]?.message}>
-                          <div style="font-size: 11px; color: #999; margin-top: 4px;">
+                          <div style="font-size: 11px; color: var(--color-info-box-text); margin-top: 4px;">
                             {field.description}
                           </div>
                         </Show>
@@ -480,12 +480,12 @@ export const PluginSettings = (): JSXElement => {
                               onInput={(e) => handleValueChange(field.key, parseFloat(e.currentTarget.value))}
                               style="flex: 1; accent-color: #0073e6;"
                             />
-                            <span style="font-size: 12px; color: #d9d9d9; min-width: 40px; text-align: right;">
+                            <span style="font-size: 12px; color: var(--color-settings-input-text); min-width: 40px; text-align: right;">
                               {getValue(field)}
                             </span>
                           </div>
                           <Show when={field.description}>
-                            <div style="font-size: 11px; color: #999;">
+                            <div style="font-size: 11px; color: var(--color-info-box-text);">
                               {field.description}
                             </div>
                           </Show>
@@ -501,7 +501,7 @@ export const PluginSettings = (): JSXElement => {
                             const numVal = parseFloat(val);
                             handleValueChange(field.key, isNaN(numVal) ? val : numVal);
                           }}
-                          style="background: #2b2b2b; border-radius: 4px; border: 1px solid #212121; color: #d9d9d9; outline: none; cursor: pointer; display: block; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif; font-size: 12px; padding: 8px 9px; line-height: 14px; width: 100%;"
+                          style="background: var(--color-settings-input-bg); border-radius: 4px; border: 1px solid #212121; color: var(--color-settings-input-text); outline: none; cursor: pointer; display: block; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif; font-size: 12px; padding: 8px 9px; line-height: 14px; width: 100%;"
                         >
                           <For each={field.options || []}>
                             {(option) => (
@@ -512,7 +512,7 @@ export const PluginSettings = (): JSXElement => {
                           </For>
                         </select>
                         <Show when={field.description}>
-                          <div style="font-size: 11px; color: #999; margin-top: 4px;">
+                          <div style="font-size: 11px; color: var(--color-info-box-text); margin-top: 4px;">
                             {field.description}
                           </div>
                         </Show>
@@ -530,11 +530,11 @@ export const PluginSettings = (): JSXElement => {
                             type="text"
                             value={getValue(field) as string}
                             onInput={(e) => handleValueChange(field.key, e.currentTarget.value)}
-                            style="background: #2b2b2b;border-radius: 4px;border: 1px solid #212121;color: #d9d9d9;outline: none;font-size: 12px;padding: 8px 9px;flex: 1;"
+                            style="background: var(--color-settings-input-bg);border-radius: 4px;border: 1px solid #212121;color: var(--color-settings-input-text);outline: none;font-size: 12px;padding: 8px 9px;flex: 1;"
                           />
                         </div>
                         <Show when={field.description}>
-                          <div style="font-size: 11px; color: #999; margin-top: 4px;">
+                          <div style="font-size: 11px; color: var(--color-info-box-text); margin-top: 4px;">
                             {field.description}
                           </div>
                         </Show>
@@ -583,7 +583,7 @@ export const PluginSettings = (): JSXElement => {
                         <span style="font-size: 18px; line-height: 1;">{entitlement.icon}</span>
                         <div style="flex: 1;">
                           <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 12px; color: #d9d9d9; font-weight: 500;">
+                            <span style="font-size: 12px; color: var(--color-settings-input-text); font-weight: 500;">
                               {entitlement.label}
                             </span>
                             <span

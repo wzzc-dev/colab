@@ -38,15 +38,15 @@ export const SettingsPaneSaveClose = ({
         <button
           type="button"
           onClick={onCloseClick}
-          style="border-color: rgb(54, 54, 54);outline: 0px;cursor: default;-webkit-user-select: none;padding: 0px 12px;font-family: inherit;font-size: 12px;position: relative;display: flex;align-items: center;justify-content: center;height: 32px;border-radius: 2px;color: rgb(235, 235, 235);background: rgb(94, 94, 94);border-width: 1px;border-style: solid;box-sizing: border-box;align-self: center;"
+          style="border-color: var(--color-settings-input-border);outline: 0px;cursor: default;-webkit-user-select: none;padding: 0px 12px;font-family: inherit;font-size: 12px;position: relative;display: flex;align-items: center;justify-content: center;height: 32px;border-radius: 2px;color: var(--color-button-text);background: var(--color-button-bg);border-width: 1px;border-style: solid;box-sizing: border-box;align-self: center;"
         >
           Close
         </button>
         <button
           disabled={saveDisabled()}
           type="submit"
-          style={`border-color: rgb(54, 54, 54);outline: 0px;cursor: default;-webkit-user-select: none;margin-left: 8px;padding: 0px 12px;font-family: inherit;font-size: 12px;position: relative;display: flex;align-items: center;justify-content: center;height: 32px;border-radius: 2px 0px 0px 2px;color: rgb(255, 255, 255);background: ${
-            saveDisabled() ? "#ccc" : "rgb(0, 115, 230)"
+          style={`border-color: var(--color-settings-input-border);outline: 0px;cursor: default;-webkit-user-select: none;margin-left: 8px;padding: 0px 12px;font-family: inherit;font-size: 12px;position: relative;display: flex;align-items: center;justify-content: center;height: 32px;border-radius: 2px 0px 0px 2px;color: white;background: ${
+            saveDisabled() ? "var(--color-button-disabled)" : "var(--color-button-hover)"
           };border-width: 1px 0px 1px 1px;border-style: solid;box-sizing: border-box;align-self: center;`}
         >
           Save
@@ -80,7 +80,7 @@ export const SettingsPaneFormSection = ({
         style="outline: 0px;cursor: default;-webkit-user-select: none;"
         onClick={() => setOpen(!open())}
       >
-        <div style="padding: 7px 4px;display: flex;align-items: center;background-color: rgb(43, 43, 43);font-size: 12px;font-weight: bold;line-height: 16px;border-width: 1px 0px;border-style: solid;border-top-color: rgb(33, 33, 33);border-bottom-color: rgb(33, 33, 33);">
+        <div style="padding: 7px 4px;display: flex;align-items: center;background-color: var(--color-settings-section);font-size: 12px;font-weight: bold;line-height: 16px;border-width: 1px 0px;border-style: solid;border-top-color: var(--color-settings-input-border);border-bottom-color: var(--color-settings-input-border);">
           <div class="arrow" style="padding-right: 4px;">
             <Switch>
               <Match when={open()}>
@@ -139,7 +139,7 @@ export const SettingsPaneField = ({
           class="field-head"
           style="display: flex;-webkit-box-align: end;-ms-flex-align: end;align-items: flex-end;-ms-flex-wrap: wrap;flex-wrap: wrap;margin-bottom: 8px;"
         >
-          <div style="box-sizing: border-box;color: rgb(217, 217, 217);cursor: default;display: block;font-family: Inter, -apple-system, 'system-ui', 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;font-size: 12px;height: 16px;line-height: 16px;max-width: 100%;overflow-x: hidden;overflow-y: hidden;pointer-events: auto;text-overflow: ellipsis;text-size-adjust: 100%;user-select: text;white-space: nowrap;">
+          <div style="box-sizing: border-box;color: var(--color-text-secondary);cursor: default;display: block;font-family: Inter, -apple-system, 'system-ui', 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;font-size: 12px;height: 16px;line-height: 16px;max-width: 100%;overflow-x: hidden;overflow-y: hidden;pointer-events: auto;text-overflow: ellipsis;text-size-adjust: 100%;user-select: text;white-space: nowrap;">
             {typeof label === "function" ? label() : label}
           </div>
         </div>
@@ -169,7 +169,7 @@ export const SettingsInputField = ({
       value={value}
       // onInput={onInput}
       placeholder={placeholder}
-      style="background: #2b2b2b;border-radius: #2b2b2b;border: 1px solid #212121;color: #d9d9d9;outline: none;cursor: text;display: block;font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;font-size: 12px;padding-top: 8px;padding-right: 9px;padding-bottom: 8px;padding-left: 9px;line-height: 14px;"
+      style="background: var(--color-settings-input-bg);border-radius: var(--color-settings-input-bg);border: 1px solid var(--color-settings-input-border);color: var(--color-settings-input-text);outline: none;cursor: text;display: block;font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;font-size: 12px;padding-top: 8px;padding-right: 9px;padding-bottom: 8px;padding-left: 9px;line-height: 14px;"
     ></input>
   );
 };
@@ -183,7 +183,7 @@ export const SettingsReadonlyField = ({
 }) => {
   return (
     <span
-      style="background: #202020;
+      style="background: var(--color-settings-input-border);
     padding-top: 5px;
     padding-right: 9px;
     padding-bottom: 5px;
@@ -194,13 +194,13 @@ export const SettingsReadonlyField = ({
     >
       {label}:
       <span
-        style="background: #2b2b2b;
+        style="background: var(--color-settings-input-bg);
         padding-top: 2px;
         padding-right: 9px;
         padding-bottom: 2px;
         padding-left: 9px;
         line-height: 22px;
-        color: #d9d9d9;
+        color: var(--color-settings-input-text);
         font-size: 12px;
       word-break: break-all;
       -webkit-user-select: text;

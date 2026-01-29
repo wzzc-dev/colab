@@ -257,7 +257,7 @@ export const GitHubRepoSelector = (
 
 	if (!githubService.isConnected()) {
 		return (
-			<div style="padding: 20px; text-align: center; color: #999;">
+			<div style="padding: 20px; text-align: center; color: var(--color-github-text-default, #999);">
 				<div style="margin-bottom: 12px;">GitHub not connected</div>
 				<div style="font-size: 11px;">
 					Connect your GitHub account in workspace settings to browse
@@ -270,19 +270,19 @@ export const GitHubRepoSelector = (
 	return (
 		<div style="display: flex; flex-direction: column; height: 100%;">
 			{/* Search and Filters */}
-			<div style="padding: 12px; border-bottom: 1px solid #333; background: #2b2b2b;">
+			<div style="padding: 12px; border-bottom: 1px solid var(--color-toolbar-section-border, #333); background: var(--color-toolbar-menu-bg, #2b2b2b);">
 				<div style="display: flex; gap: 8px; margin-bottom: 8px;">
 					<input
 						type="text"
 						placeholder="Search or enter owner/repo..."
 						value={searchQuery()}
 						onInput={(e) => setSearchQuery(e.currentTarget.value)}
-						style="flex: 1; background: #1a1a1a; border: 1px solid #555; color: #d9d9d9; padding: 6px 8px; border-radius: 4px; font-size: 11px;"
+						style="flex: 1; background: var(--color-settings-input-bg, #1a1a1a); border: 1px solid var(--color-settings-input-border, #555); color: var(--color-settings-input-text, #d9d9d9); padding: 6px 8px; border-radius: 4px; font-size: 11px;"
 					/>
 					<select
 						value={sortBy()}
 						onChange={(e) => setSortBy(e.currentTarget.value as any)}
-						style="background: #1a1a1a; border: 1px solid #555; color: #d9d9d9; padding: 6px 8px; border-radius: 4px; font-size: 11px;"
+						style="background: var(--color-settings-input-bg, #1a1a1a); border: 1px solid var(--color-settings-input-border, #555); color: var(--color-settings-input-text, #d9d9d9); padding: 6px 8px; border-radius: 4px; font-size: 11px;"
 					>
 						<option value="updated">Recently Updated</option>
 						<option value="name">Name</option>
@@ -294,7 +294,7 @@ export const GitHubRepoSelector = (
 					<select
 						value={selectedOrg() || ""}
 						onChange={(e) => setSelectedOrg(e.currentTarget.value || null)}
-						style="flex: 1; background: #1a1a1a; border: 1px solid #555; color: #d9d9d9; padding: 6px 8px; border-radius: 4px; font-size: 11px;"
+						style="flex: 1; background: var(--color-settings-input-bg, #1a1a1a); border: 1px solid var(--color-settings-input-border, #555); color: var(--color-settings-input-text, #d9d9d9); padding: 6px 8px; border-radius: 4px; font-size: 11px;"
 					>
 						<option value="">Your repositories</option>
 						<option value="public">Public repositories</option>
@@ -307,7 +307,7 @@ export const GitHubRepoSelector = (
 						<select
 							value={filterType()}
 							onChange={(e) => setFilterType(e.currentTarget.value as any)}
-							style="background: #1a1a1a; border: 1px solid #555; color: #d9d9d9; padding: 6px 8px; border-radius: 4px; font-size: 11px;"
+							style="background: var(--color-settings-input-bg, #1a1a1a); border: 1px solid var(--color-settings-input-border, #555); color: var(--color-settings-input-text, #d9d9d9); padding: 6px 8px; border-radius: 4px; font-size: 11px;"
 						>
 							<option value="all">All</option>
 							<option value="owner">Owner</option>
@@ -319,14 +319,14 @@ export const GitHubRepoSelector = (
 
 			{/* Error Display */}
 			<Show when={error()}>
-				<div style="padding: 12px; background: #4a1a1a; color: #ff6b6b; font-size: 11px; border-bottom: 1px solid #333;">
+				<div style="padding: 12px; background: var(--color-github-error-bg, #4a1a1a); color: var(--color-github-error-text, #ff6b6b); font-size: 11px; border-bottom: 1px solid var(--color-toolbar-section-border, #333);">
 					{error()}
 				</div>
 			</Show>
 
 			{/* Loading State */}
 			<Show when={loading()}>
-				<div style="padding: 20px; text-align: center; color: #999; font-size: 11px;">
+				<div style="padding: 20px; text-align: center; color: var(--color-github-text-default, #999); font-size: 11px;">
 					Loading repositories...
 				</div>
 			</Show>
@@ -342,11 +342,11 @@ export const GitHubRepoSelector = (
 									onClick={() => handleRepoSelect(repo)}
 									style={{
 										padding: "12px",
-										"border-bottom": "1px solid #2a2a2a",
+										"border-bottom": "1px solid var(--color-github-item-border, #2a2a2a)",
 										cursor: "pointer",
 										background:
 											props.selectedRepo?.id === repo.id && props.selectedBranch
-												? "#1a4a6b"
+												? "var(--color-github-item-selected-bg, #1a4a6b)"
 												: "transparent",
 									}}
 									onMouseEnter={(e) =>
@@ -363,7 +363,7 @@ export const GitHubRepoSelector = (
 									}
 								>
 									<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-										<div style="font-size: 12px; font-weight: 500; color: #d9d9d9;">
+										<div style="font-size: 12px; font-weight: 500; color: var(--color-settings-input-text, #d9d9d9);">
 											{repo.name}
 										</div>
 										<Show when={repo.private}>
@@ -395,8 +395,8 @@ export const GitHubRepoSelector = (
 
 								{/* Branch Selection */}
 								<Show when={showBranches()?.id === repo.id}>
-									<div style="background: #1a1a1a; border-bottom: 1px solid #2a2a2a;">
-										<div style="padding: 8px 12px; font-size: 10px; color: #999; border-bottom: 1px solid #333;">
+									<div style="background: var(--color-settings-input-bg, #1a1a1a); border-bottom: 1px solid #2a2a2a;">
+										<div style="padding: 8px 12px; font-size: 10px; color: #999; border-bottom: 1px solid var(--color-toolbar-section-border, #333);">
 											Select branch to clone:
 										</div>
 										<div>

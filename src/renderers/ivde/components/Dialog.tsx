@@ -50,7 +50,7 @@ export const Dialog = ({
         left: "0",
         right: "0",
         bottom: "0",
-        "background-color": "rgba(0, 0, 0, 0.5)",
+        "background-color": "var(--color-dialog-overlay-bg, rgba(0, 0, 0, 0.5))",
         display: "flex",
         "align-items": "center",
         "justify-content": "center",
@@ -61,14 +61,14 @@ export const Dialog = ({
       <div
         class="webview-overlay"
         style={{
-          background: "#2d2d2d",
-          border: "1px solid #454545",
+          background: "var(--color-dialog-bg, #2d2d2d)",
+          border: "1px solid var(--color-dialog-border, #454545)",
           "border-radius": "6px",
           padding: "20px",
           "min-width": "300px",
           "max-width": "500px",
           "font-family": "'Segoe UI', system-ui, sans-serif",
-          color: "#cccccc",
+          color: "var(--color-dialog-text, #cccccc)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -77,7 +77,7 @@ export const Dialog = ({
             margin: "0 0 12px 0",
             "font-size": "16px",
             "font-weight": "600",
-            color: type === "danger" ? "#f85149" : "#cccccc",
+            color: type === "danger" ? "var(--color-dialog-danger-text, #f85149)" : "var(--color-text-secondary, #cccccc)",
           }}
         >
           {title}
@@ -87,7 +87,7 @@ export const Dialog = ({
             margin: "0 0 20px 0",
             "font-size": "14px",
             "line-height": "1.4",
-            color: "#a3a3a3",
+            color: "var(--color-dialog-text-secondary, #a3a3a3)",
             "user-select": "text",
             cursor: "text",
             "white-space": "pre-wrap",
@@ -106,18 +106,18 @@ export const Dialog = ({
           <button
             onClick={onCancel}
             style={{
-              background: "transparent",
-              border: "1px solid #555",
-              color: "#cccccc",
+              background: "var(--color-dialog-button-cancel-bg, transparent)",
+              border: "1px solid var(--color-dialog-button-cancel-border, #555)",
+              color: "var(--color-dialog-button-cancel-text, #cccccc)",
               "font-size": "12px",
               padding: "6px 12px",
               "border-radius": "4px",
               cursor: "pointer",
               "font-family": "'Segoe UI', system-ui, sans-serif",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#555")}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-dialog-button-cancel-hover-bg, #555)")}
             onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "transparent")
+              (e.currentTarget.style.background = "var(--color-dialog-button-cancel-bg, transparent)")
             }
           >
             {cancelText}
@@ -125,10 +125,9 @@ export const Dialog = ({
           <button
             onClick={onConfirm}
             style={{
-              background: type === "danger" ? "#da3633" : "#238636",
-              border:
-                "1px solid " + (type === "danger" ? "#f85149" : "#2ea043"),
-              color: "#ffffff",
+              background: type === "danger" ? "var(--color-dialog-button-danger-bg, #da3633)" : "var(--color-dialog-button-confirm-bg, #238636)",
+              border: "1px solid " + (type === "danger" ? "var(--color-dialog-button-danger-border, #f85149)" : "var(--color-dialog-button-confirm-border, #2ea043)"),
+              color: "var(--color-dialog-button-confirm-text, #ffffff)",
               "font-size": "12px",
               padding: "6px 12px",
               "border-radius": "4px",
@@ -137,11 +136,11 @@ export const Dialog = ({
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background =
-                type === "danger" ? "#b91c1c" : "#1f6333";
+                type === "danger" ? "var(--color-dialog-button-danger-hover-bg, #b91c1c)" : "var(--color-dialog-button-confirm-hover-bg, #1f6333)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background =
-                type === "danger" ? "#da3633" : "#238636";
+                type === "danger" ? "var(--color-dialog-button-danger-bg, #da3633)" : "var(--color-dialog-button-confirm-bg, #238636)";
             }}
           >
             {confirmText}
