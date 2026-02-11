@@ -1788,7 +1788,7 @@ const Pane = ({
 							<div style={{
 								position: "absolute",
 								inset: "0",
-								visibility: tabId === pane.currentTabId ? "visible" : "hidden",
+								display: tabId === pane.currentTabId ? "block" : "none",
 								"pointer-events": tabId === pane.currentTabId && !renderDropTarget() ? "auto" : "none",
 							}}>
 								<slot name={`paneslot-${tabId}`} />

@@ -463,8 +463,8 @@ console.log('Preload script loaded for:', window.location.href);
       // AND the webview has moved on-screen (offScreen becomes false after 1s).
       if (!windowStartupSettled()) return;
       if (offScreen()) return;
-      // Tabs are always slotted now (visibility:hidden keeps them in layout),
-      // so syncDimensions always returns correct pane dimensions.
+      // Tabs are always slotted now (display:none hides inactive tabs),
+      // syncDimensions runs after the tab becomes visible so dimensions are correct.
       webviewRef?.syncDimensions(true);
       webviewRef?.toggleTransparent(false);
       webviewRef?.togglePassthrough(false);
