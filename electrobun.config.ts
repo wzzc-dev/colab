@@ -24,7 +24,7 @@ export default {
         "mac": {
             "codesign": true,
             "notarize": true,
-            "bundleCEF": true,
+            "bundleCEF": false,
             "entitlements": {
 
             }
